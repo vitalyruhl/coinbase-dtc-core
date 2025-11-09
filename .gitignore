@@ -1,8 +1,41 @@
 # Build directories
 /build/
+build_*/
+test_curl_build/
 /bin/
 /out/
 /CMakeFiles/
+
+# Visual Studio / Windows
+.vs/
+*.vcxproj*
+*.sln
+*.user
+*.aps
+*.pch
+*.vspscc
+*_i.c
+*_p.c
+*.ncb
+*.suo
+*.tlb
+*.tlh
+*.bak
+*.cache
+*.ilk
+*.log
+*.lib
+*.sbr
+*.tmp
+*.tlog
+*.res
+*.rc
+*.asm
+*.map
+*.exp
+*.idb
+*.manifest
+*.lastbuildstate
 
 # CMake generated files
 CMakeCache.txt
