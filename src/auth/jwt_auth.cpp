@@ -28,6 +28,27 @@ using json_traits = jwt::traits::picojson;
 namespace coinbase_dtc_core {
 namespace auth {
 
+// Helper function to process private key and convert escape sequences
+std::string process_private_key(const std::string& raw_key) {
+    std::string processed = raw_key;
+    
+    // Replace literal \n with actual newlines
+    size_t pos = 0;
+    while ((pos = processed.find("\\n", pos)) != std::string::npos) {
+        processed.replace(pos, 2, "\n");
+        pos += 1;
+    }
+    
+    // Replace literal \r with actual carriage returns
+    pos = 0;
+    while ((pos = processed.find("\\r", pos)) != std::string::npos) {
+        processed.replace(pos, 2, "\r");
+        pos += 1;
+    }
+    
+    return processed;
+}
+
 // CDPCredentials implementation
 CDPCredentials CDPCredentials::from_json_file(const std::string& filepath) {
 #ifdef HAS_NLOHMANN_JSON
@@ -44,7 +65,7 @@ CDPCredentials CDPCredentials::from_json_file(const std::string& filepath) {
     if (creds.key_id.empty()) {
         creds.key_id = j.value("id", "");  // Fallback to "id" for Ed25519 keys
     }
-    creds.private_key = j.value("privateKey", "");
+    creds.private_key = process_private_key(j.value("privateKey", ""));
     creds.passphrase = j.value("passphrase", "");
     
     return creds;
@@ -61,7 +82,7 @@ CDPCredentials CDPCredentials::from_environment() {
     const char* passphrase = std::getenv("CDP_PASSPHRASE");
     
     if (key_id) creds.key_id = key_id;
-    if (private_key) creds.private_key = private_key;
+    if (private_key) creds.private_key = process_private_key(private_key);
     if (passphrase) creds.passphrase = passphrase;
     
     return creds;
