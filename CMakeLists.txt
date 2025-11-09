@@ -13,6 +13,8 @@ if(WIN32)
     # Windows/vcpkg approach
     find_package(CURL QUIET)
     find_package(nlohmann_json QUIET)
+    find_package(jwt-cpp CONFIG QUIET)
+    find_package(OpenSSL QUIET)
 else()
     # Linux approach - use pkg-config for libcurl
     if(PkgConfig_FOUND)
@@ -26,6 +28,8 @@ else()
         endif()
     endif()
     find_package(nlohmann_json QUIET)
+    find_package(jwt-cpp CONFIG QUIET)
+    find_package(OpenSSL QUIET)
 endif()
 
 # Check if secrets file exists (for local development)
@@ -43,6 +47,7 @@ add_library(coinbase_dtc_core STATIC
     src/util/log.cpp
     src/test/api_mock.cpp
     src/credentials/cdp_credentials.cpp
+    src/auth/jwt_auth.cpp
 )
 
 target_include_directories(coinbase_dtc_core PUBLIC
@@ -70,7 +75,19 @@ endif()
 if(nlohmann_json_FOUND)
     target_link_libraries(coinbase_dtc_core PUBLIC nlohmann_json::nlohmann_json)
     target_compile_definitions(coinbase_dtc_core PUBLIC HAS_NLOHMANN_JSON)
-    message(STATUS "Using nlohmann_json for JSON parsing")
+    message(STATUS "✅ Using nlohmann_json for JSON parsing")
+endif()
+
+if(jwt-cpp_FOUND)
+    target_link_libraries(coinbase_dtc_core PUBLIC jwt-cpp::jwt-cpp)
+    target_compile_definitions(coinbase_dtc_core PUBLIC HAS_JWT_CPP)
+    message(STATUS "✅ Using jwt-cpp for JWT authentication")
+endif()
+
+if(OpenSSL_FOUND)
+    target_link_libraries(coinbase_dtc_core PUBLIC OpenSSL::SSL OpenSSL::Crypto)
+    target_compile_definitions(coinbase_dtc_core PUBLIC HAS_OPENSSL)
+    message(STATUS "✅ Using OpenSSL for cryptographic operations")
 endif()
 
 include(CTest)
@@ -100,5 +117,17 @@ if (BUILD_TESTING AND ENABLE_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/settings
     )
     
+    # JWT Authentication test
+    add_executable(test_jwt_auth
+        tests/test_jwt_auth.cpp
+    )
+    target_link_libraries(test_jwt_auth PRIVATE coinbase_dtc_core)
+    
+    target_include_directories(test_jwt_auth PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/settings
+    )
+    
     add_test(NAME advanced_trade_api COMMAND test_advanced_trade_api)
+    add_test(NAME jwt_auth COMMAND test_jwt_auth)
 endif()

@@ -11,6 +11,14 @@
       "name": "nlohmann-json"
     },
     {
+      "name": "jwt-cpp",
+      "$comment": "For JWT token generation and verification"
+    },
+    {
+      "name": "openssl",
+      "$comment": "For cryptographic operations (ES256 signing)"
+    },
+    {
       "name": "gtest",
       "$comment": "For advanced testing (optional)"
     }
