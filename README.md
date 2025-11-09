@@ -1,94 +1,216 @@
-# coinbase-dtc-core
+# Coinbase DTC Core
 
-> **⚠️ WARNING: DEVELOPMENT PROJECT - NOT READY FOR PRODUCTION USE**
+> **⚠️ UNDER CONSTRUCTION - API Foundation Ready, DTC Integration Pending**
 >
-> This project is currently under active development and is **NOT** ready for production use. 
-> Many core features are still stubbed or incomplete. Use at your own risk.
+> **What's Working**: ✅ Coinbase API connectivity, HTTP client, cross-platform builds  
+> **What's Missing**: ❌ DTC protocol integration, market data feeds, trading operations
+>
+> This project is building the infrastructure for Coinbase + DTC integration. The API layer is functional, but the core DTC features are not yet implemented.
 
-Open-source DTC (Data and Trade Communication) market data feed implementation for Coinbase.
+Open-source C++17 library for integrating Coinbase Advanced Trade API with the Data Trading Client (DTC) protocol for market data feeds and trading operations.
 
-## Status
+## 🚀 Recent Major Updates (November 2025)
 
-**🚧 UNDER CONSTRUCTION 🚧**
+### ✅ **API Integration Working**
 
-This is a **work-in-progress** project with the following limitations:
+- **Live API Connectivity**: Successfully connecting to Coinbase Advanced Trade API
+- **HTTP Client**: Native libcurl integration with cross-platform fallback
+- **Endpoint Management**: Centralized URL management for sandbox/production environments
+- **JSON Processing**: nlohmann_json integration for response parsing
 
-- **No actual Coinbase connection**: WebSocket/REST API implementation is stubbed
-- **Incomplete DTC protocol**: Only basic message structure is implemented
-- **No real data processing**: Feed parsing and message translation are not functional
-- **Minimal testing**: Test coverage is incomplete
-- **No production hardening**: Error handling, reconnection logic, and stability features are missing
+### ✅ **Cross-Platform Development**
 
-**What currently works:**
-- ✅ Project builds successfully with CMake
-- ✅ Basic project structure and interfaces
-- ✅ Simple server executable (prints startup message only)
-- ✅ GitHub Actions CI/CD pipeline
-- ✅ Docker containerization
+- **Windows**: Visual Studio Community 2022 support with vcpkg
+- **Linux**: Docker containerized development and production
+- **CMake Presets**: Platform-specific configurations
+- **CI/CD**: GitHub Actions pipeline ready
 
-**Do not use this in production environments.**
+### ✅ **Security & Credentials**
 
-## Overview
+- **Multiple Auth Formats**: Legacy API keys + modern CDP credentials
+- **Secrets Management**: Secure credential storage with .gitignore protection  
+- **Environment Variables**: Production-ready configuration
+- **JWT Ready**: Framework for CDP authentication
 
-This project provides foundational components to translate Coinbase market data into the DTC protocol format. It is structured as a reusable static library (`coinbase_dtc_core`) and a simple server executable (`coinbase_dtc_server`).
+## 🎯 Current Status & Test Results
 
-## Components
+### ✅ **Infrastructure Working** (Foundation Layer)
 
-- **DTC Protocol (`src/dtc_protocol`)**: Basic stubs for encoding/decoding DTC messages.
-- **Coinbase Feed (`src/coinbase_feed`)**: Stubs for connecting to and parsing Coinbase data (WebSocket/REST to be implemented).
-- **Server (`src/server`)**: A minimal server harness that will orchestrate feed connection and DTC broadcasting.
-- **Include (`include`)**: Public headers.
-- **Tests (`tests`)**: Unit test stubs.
+| Component | Status | Description |
+|-----------|--------|-------------|
+| **HTTP Client** | ✅ **Production Ready** | libcurl + fallback system |
+| **API Connectivity** | ✅ **Verified** | All public endpoints tested |
+| **Cross-Platform Build** | ✅ **Working** | Windows MSVC + Linux GCC |
+| **Endpoint Management** | ✅ **Complete** | Sandbox/production switching |
+| **JSON Parsing** | ✅ **Integrated** | nlohmann_json responses |
+| **Security Framework** | ✅ **Implemented** | Secrets + env variables |
 
-## Build Requirements
+### ❌ **Missing Core Features** (Main Project Goals)
 
-- C++17 compatible compiler (MSVC, Clang, or GCC)
-- CMake >= 3.16
-- (Optional) `nlohmann::json` for JSON parsing. Currently not required; will be integrated later.
+| Component | Status | Description |
+|-----------|--------|-------------|
+| **DTC Protocol** | ❌ **Not Implemented** | Core protocol message handling |
+| **Market Data Feeds** | ❌ **Stubbed Only** | Real-time WebSocket feeds |
+| **Trading Operations** | ❌ **API Ready Only** | Order management via DTC |
+| **DTC Server** | ❌ **Basic Shell** | Prints startup message only |
+| **Data Translation** | ❌ **Not Started** | Coinbase → DTC mapping |
+| **Feed Subscription** | ❌ **Not Started** | WebSocket market data |
 
-## Building
-
-```pwsh
-# From repository root
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release
+### Latest Test Results
+```
+🚀 Testing Coinbase Advanced Trade API...
+✅ HTTP client: libcurl (native)  
+✅ GET /time - Server time (200 OK)
+✅ GET /market/products - Product listings (200 OK)
+✅ GET /market/products/{id} - Product details (200 OK)  
+✅ GET /market/product_book - Order book (200 OK)
+⚠️ GET /accounts - Authentication required (expected)
 ```
 
-Artifacts:
+## 📁 Project Architecture
 
-- Static library: `build/coinbase_dtc_core.lib` (or platform equivalent)
-- Executable: `build/coinbase_dtc_server`
-
-## Running
-
-```pwsh
-./build/coinbase_dtc_server
+```
+coinbase-dtc-core/
+├── CMakePresets.json                    # VS Community + Docker configs
+├── vcpkg.json                          # Windows dependencies
+├── WINDOWS_SETUP.md                    # Detailed Windows setup guide
+├── 
+├── include/coinbase_dtc_core/
+│   ├── endpoints/endpoint.hpp          # 🆕 API URL management
+│   ├── credentials/credentials_manager.hpp # 🆕 Auth management
+│   ├── dtc/protocol.hpp               # DTC protocol stubs
+│   ├── feed/coinbase/feed.hpp         # Market data feeds
+│   ├── server/server.hpp              # Server components
+│   └── util/log.hpp                   # Logging utilities
+│
+├── settings/                          # 🆕 Public configuration
+│   ├── coinbase_settings.h           # API endpoints, rate limits
+│   └── README.md                      # Settings documentation
+│
+├── secrets/                           # 🆕 Private credentials (gitignored)
+│   ├── coinbase.h.template           # API key template
+│   ├── cdp_api_key.json              # CDP credentials (if present)
+│   └── README.md                      # Security guidelines
+│
+├── tests/
+│   ├── test_basic.cpp                # Core functionality tests
+│   └── test_advanced_trade_api.cpp   # 🆕 Live API connectivity tests
+│
+└── docker-compose.yml                # Container orchestration
 ```
 
-(Currently prints a startup message only.)
+## 🏗️ Quick Start
 
-## Testing
+### Windows Development (Recommended for Fast Iteration)
 
-```pwsh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DENABLE_TESTING=ON
-cmake --build build --config Debug
-ctest --test-dir build -C Debug --output-on-failure
+```powershell
+# One-time setup: Install vcpkg
+git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+C:\vcpkg\bootstrap-vcpkg.bat
+C:\vcpkg\vcpkg integrate install
+setx VCPKG_ROOT "C:\vcpkg"
+
+# Clone and build
+git clone https://github.com/your-repo/coinbase-dtc-core.git
+cd coinbase-dtc-core
+cmake --preset windows-vs2022
+cmake --build out/build/windows-vs2022 --config Debug
+
+# Test API connectivity
+.\out\build\windows-vs2022\Debug\test_advanced_trade_api.exe
 ```
 
-## Roadmap
+### Linux/Docker (Production Environment)
 
-**Planned features and improvements:**
+```bash
+# Development
+docker-compose --profile dev run --rm coinbase-dtc-core-dev bash -c \
+  "cmake -B build && cmake --build build && build/test_advanced_trade_api"
 
-1. **Implement Coinbase WebSocket subscription handling** - Real-time market data connection
-2. **Map Coinbase messages to internal model and DTC wire format** - Data transformation layer
-3. **Add robust error handling and reconnection logic** - Production stability
-4. **Integrate `nlohmann::json` for parsing** - JSON message processing
-5. **Expand test coverage** - Protocol encoding/decoding, feed resilience
-6. **Add configuration management** - Runtime configuration options
-7. **Implement logging and monitoring** - Operational observability
-8. **Performance optimization** - Low-latency data processing
+# Production
+docker-compose up coinbase-dtc-core
+```
 
-**Contributions welcome!** Please see the project issues for specific tasks.
+## 🔒 Security & Authentication
+
+### Current Implementation
+
+```cpp
+// Environment variables (production)
+COINBASE_API_KEY="your-api-key"
+COINBASE_API_SECRET="your-api-secret" 
+COINBASE_PASSPHRASE="your-passphrase"
+
+// CDP format (new)
+CDP_API_KEY_ID="your-cdp-key-id"
+CDP_PRIVATE_KEY="your-private-key"
+
+// Or via JSON file (development)
+secrets/cdp_api_key.json
+```
+
+### Security Features
+
+- **🔒 Git Protection**: `secrets/` directory excluded from version control
+- **🌍 Environment Variables**: Production credential management
+- **📁 Local Files**: Development convenience with security
+- **🔄 Multiple Formats**: Legacy and CDP authentication support
+- **⚡ Ready for JWT**: Framework prepared for token-based auth
+
+## 🎯 Roadmap & Next Steps
+
+### Phase 1: Core Infrastructure ✅ **COMPLETE**
+
+- [x] Cross-platform build system (CMake + vcpkg)
+- [x] HTTP client integration (libcurl + fallback)
+- [x] Basic API connectivity (all public endpoints working)
+- [x] Development environment setup (Windows + Docker)
+- [x] Endpoint management (sandbox/production)
+- [x] Security framework (secrets + environment variables)
+
+### Phase 2: Authentication 🔄 **IN PROGRESS**
+
+- [x] Credential management framework
+- [x] Multiple authentication format support
+- [ ] **Next**: JWT token generation for CDP
+- [ ] **Next**: API request signing
+- [ ] **Next**: Token refresh logic
+
+### Phase 3: DTC Protocol ❌ **NOT STARTED** (Core Missing Feature!)
+
+- [ ] **Critical**: DTC protocol message structures
+- [ ] **Critical**: DTC server implementation (currently just prints startup)
+- [ ] **Critical**: Message encoding/decoding
+- [ ] **Critical**: DTC client connection handling
+- [ ] **Critical**: Protocol version negotiation
+
+### Phase 4: Market Data Integration ❌ **NOT STARTED** (Main Purpose!)
+
+- [ ] **Critical**: WebSocket real-time feeds from Coinbase
+- [ ] **Critical**: Coinbase message → DTC message mapping  
+- [ ] **Critical**: Market data streaming to DTC clients
+- [ ] **Critical**: Historical data retrieval
+- [ ] **Critical**: Order book management
+
+### Phase 5: Trading Operations ❌ **NOT STARTED**
+
+- [ ] Order placement/cancellation via DTC protocol
+- [ ] Account management with DTC integration
+- [ ] Position tracking through DTC
+- [ ] Risk management
+- [ ] Portfolio operations
+
+### Phase 6: Production Hardening **PLANNED**
+
+- [ ] Error handling & retry logic
+- [ ] Connection pooling
+- [ ] Rate limiting compliance
+- [ ] Monitoring & alerting
+- [ ] Performance optimization
+
+---
+
+**⚠️ Reality Check**: While we have solid API connectivity, the core DTC features that make this project useful are not yet implemented. The project is currently at the "foundation" stage.
 
 ## License
 
