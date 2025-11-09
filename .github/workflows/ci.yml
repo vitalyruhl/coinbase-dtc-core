@@ -1,0 +1,113 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
+
+    - name: Configure CMake
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.build_type }} -j$(nproc)
+
+    - name: Run tests
+      run: |
+        cd build
+        ctest --output-on-failure --verbose
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      if: matrix.build_type == 'Release'
+      with:
+        name: coinbase-dtc-core-linux
+        path: |
+          build/coinbase_dtc_server
+          build/libcoinbase_dtc_core.a
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: coinbase-dtc-core:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Test Docker container
+      run: |
+        docker run --rm -d --name test-container coinbase-dtc-core:latest
+        sleep 5
+        # Add any container health checks here
+        docker logs test-container
+        docker stop test-container
+
+  # Optional: Deploy to server
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build-and-test, docker-build]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    # Uncomment and configure if you want to push to Docker Hub
+    # - name: Login to Docker Hub
+    #   uses: docker/login-action@v3
+    #   with:
+    #     username: ${{ secrets.DOCKER_USERNAME }}
+    #     password: ${{ secrets.DOCKER_PASSWORD }}
+
+    # - name: Build and push Docker image
+    #   uses: docker/build-push-action@v5
+    #   with:
+    #     context: .
+    #     push: true
+    #     tags: your-username/coinbase-dtc-core:latest
+    #     cache-from: type=gha
+    #     cache-to: type=gha,mode=max
+
+    # Uncomment to deploy to a server via SSH
+    # - name: Deploy to server
+    #   uses: appleboy/ssh-action@v1.0.0
+    #   with:
+    #     host: ${{ secrets.SERVER_HOST }}
+    #     username: ${{ secrets.SERVER_USER }}
+    #     key: ${{ secrets.SERVER_SSH_KEY }}
+    #     script: |
+    #       docker pull your-username/coinbase-dtc-core:latest
+    #       docker-compose down
+    #       docker-compose up -d

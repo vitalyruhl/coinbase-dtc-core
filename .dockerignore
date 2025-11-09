@@ -1,0 +1,32 @@
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+
+# IDE files
+.vscode/
+.vs/
+*.vcxproj*
+*.sln
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+LICENSE
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Temporary files
+*.tmp
+*.log
+.DS_Store
+Thumbs.db

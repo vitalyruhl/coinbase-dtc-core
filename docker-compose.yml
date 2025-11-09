@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  coinbase-dtc-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    ports:
+      - "8080:8080"  # Adjust port as needed
+    restart: unless-stopped
+    # Environment variables (add as needed)
+    environment:
+      - LOG_LEVEL=info
+    # Volumes for persistent data (if needed)
+    # volumes:
+    #   - ./data:/app/data
+    
+  # Development service with mounted source code
+  coinbase-dtc-core-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - /app/build  # Anonymous volume for build artifacts
+    working_dir: /app
+    command: /bin/bash
+    stdin_open: true
+    tty: true
+    profiles:
+      - dev

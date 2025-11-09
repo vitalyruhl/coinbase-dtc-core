@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0, v2.1.3, etc.
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
+
+    - name: Build Release
+      run: |
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        cmake --build build --config Release -j$(nproc)
+
+    - name: Run tests
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    - name: Package artifacts
+      run: |
+        mkdir -p release
+        cp build/coinbase_dtc_server release/
+        cp build/libcoinbase_dtc_core.a release/
+        tar -czf coinbase-dtc-core-linux-x64.tar.gz -C release .
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub (if configured)
+      if: ${{ secrets.DOCKER_USERNAME != '' }}
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Build and push Docker image
+      if: ${{ secrets.DOCKER_USERNAME != '' }}
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/coinbase-dtc-core:latest
+          ${{ secrets.DOCKER_USERNAME }}/coinbase-dtc-core:${{ steps.get_version.outputs.VERSION }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          coinbase-dtc-core-linux-x64.tar.gz
+        body: |
+          ## Changes in this release
+          - Built with CMake on Ubuntu latest
+          - Docker image available as `${{ secrets.DOCKER_USERNAME }}/coinbase-dtc-core:${{ steps.get_version.outputs.VERSION }}`
+          
+          ## Quick start with Docker
+          ```bash
+          docker run -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/coinbase-dtc-core:${{ steps.get_version.outputs.VERSION }}
+          ```
+        draft: false
+        prerelease: false
