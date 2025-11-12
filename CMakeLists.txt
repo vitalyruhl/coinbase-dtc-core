@@ -216,8 +216,20 @@ if (BUILD_TESTING AND ENABLE_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/settings
     )
     
+    # DTC Protocol test
+    add_executable(test_dtc_protocol
+        tests/test_dtc_protocol.cpp
+    )
+    target_link_libraries(test_dtc_protocol PRIVATE coinbase_dtc_core)
+    
+    target_include_directories(test_dtc_protocol PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/settings
+    )
+
     add_test(NAME advanced_trade_api COMMAND test_advanced_trade_api)
     add_test(NAME jwt_auth COMMAND test_jwt_auth)
     add_test(NAME permissions COMMAND test_permissions)
     add_test(NAME jwt_debug COMMAND test_jwt_debug)
+    add_test(NAME dtc_protocol COMMAND test_dtc_protocol)
 endif()
