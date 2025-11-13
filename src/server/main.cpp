@@ -2,6 +2,7 @@
 #include "coinbase_dtc_core/util/log.hpp"
 #include "coinbase_dtc_core/dtc/protocol.hpp"
 #include "coinbase_dtc_core/feed/coinbase/feed.hpp"
+#include "coinbase_dtc_core/feed/coinbase/websocket_client.hpp"
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -56,58 +57,60 @@ int main() {
         util::log("[OK] DTC Server started successfully!");
         std::cout << srv.status() << std::endl;
         
-        // Initialize market data simulation
-        util::log("[MARKET] Starting market data simulation...");
+        // Initialize Coinbase WebSocket feed
+        util::log("[COINBASE] Starting Coinbase WebSocket integration...");
         
-        // Create Coinbase feed (for future use)
-        feed::coinbase::Feed feed;
-        if (feed.connect()) {
-            util::log("[OK] Connected to Coinbase feed");
+        auto ws_client = std::make_unique<feed::coinbase::WebSocketClient>();
+        
+        // Set up trade data callback
+        ws_client->set_trade_callback([&srv](const feed::coinbase::TradeData& trade) {
+            uint32_t symbol_id = 1; // BTC-USD symbol ID
+            srv.broadcast_trade_update(symbol_id, trade.price, trade.size, trade.timestamp);
+            util::log("[COINBASE-TRADE] " + trade.product_id + " $" + 
+                     std::to_string(trade.price) + " vol:" + std::to_string(trade.size) + 
+                     " side:" + trade.side);
+        });
+        
+        // Set up order book callback
+        ws_client->set_level2_callback([&srv](const feed::coinbase::Level2Data& level2) {
+            uint32_t symbol_id = 1; // BTC-USD symbol ID
+            srv.broadcast_bid_ask_update(symbol_id, level2.bid_price, level2.bid_size, 
+                                       level2.ask_price, level2.ask_size, level2.timestamp);
+            util::log("[COINBASE-BOOK] " + level2.product_id + " Bid:$" + 
+                     std::to_string(level2.bid_price) + " x " + std::to_string(level2.bid_size) +
+                     " | Ask:$" + std::to_string(level2.ask_price) + " x " + std::to_string(level2.ask_size));
+        });
+        
+        // Connect to Coinbase WebSocket feed
+        if (ws_client->connect()) {
+            util::log("[OK] Connected to Coinbase WebSocket feed");
+            
+            // Subscribe to market data
+            if (ws_client->subscribe_trades("BTC-USD") && ws_client->subscribe_level2("BTC-USD")) {
+                util::log("[OK] Subscribed to BTC-USD trades and level2 data");
+            }
+        } else {
+            util::log("[ERROR] Failed to connect to Coinbase WebSocket feed");
+            return 1;
         }
         
-        // Main server loop with market data simulation
-        uint64_t last_trade_time = 0;
-        uint64_t last_bid_ask_time = 0;
-        double base_price = 65000.0; // BTC base price
-        
+        // Main server loop - now driven by WebSocket callbacks
+        util::log("[SERVER] Market data now driven by Coinbase WebSocket callbacks");
         while (srv.is_running()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            
+            // Optional: periodic status updates
+            static uint64_t last_status_time = 0;
             uint64_t current_time = server::Server::get_current_timestamp();
-            
-            // Simulate trade updates every 5 seconds
-            if (current_time - last_trade_time > 5000000) { // 5 seconds in microseconds
-                double price_variance = (rand() % 1000 - 500) / 10.0; // ±50 price variance
-                double trade_price = base_price + price_variance;
-                double volume = (rand() % 100) / 1000.0 + 0.01; // 0.01 to 0.11 BTC
-                
-                srv.broadcast_trade_update(1, trade_price, volume, current_time);
-                util::log("[TRADE] Trade broadcast: BTC-USD $" + std::to_string(trade_price) + 
-                         " vol:" + std::to_string(volume));
-                
-                last_trade_time = current_time;
+            if (current_time - last_status_time > 60000000) { // Every 60 seconds
+                util::log("[STATUS] " + ws_client->get_status());
+                last_status_time = current_time;
             }
-            
-            // Simulate bid/ask updates every 2 seconds
-            if (current_time - last_bid_ask_time > 2000000) { // 2 seconds in microseconds
-                double spread = (rand() % 20 + 5) / 10.0; // $0.5 to $2.5 spread
-                double bid_price = base_price - spread / 2;
-                double ask_price = base_price + spread / 2;
-                double bid_qty = (rand() % 50 + 10) / 10.0;   // 1.0 to 6.0 BTC
-                double ask_qty = (rand() % 50 + 10) / 10.0;
-                
-                srv.broadcast_bid_ask_update(1, bid_price, bid_qty, ask_price, ask_qty, current_time);
-                util::log("[BOOK] OrderBook broadcast: Bid $" + std::to_string(bid_price) + 
-                         " x " + std::to_string(bid_qty) +
-                         " | Ask $" + std::to_string(ask_price) + 
-                         " x " + std::to_string(ask_qty));
-                
-                last_bid_ask_time = current_time;
-                
-                // Adjust base price slightly for next iteration
-                base_price += (rand() % 200 - 100) / 100.0; // ±$1 drift
-            }
-            
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
+        
+        // Cleanup
+        ws_client->disconnect();
+        util::log("[COINBASE] Disconnected from Coinbase WebSocket feed");
         
         util::log("[STOP] Server main loop ended");
         
