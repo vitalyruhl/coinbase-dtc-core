@@ -1,6 +1,7 @@
 #include "coinbase_dtc_core/core/dtc/protocol.hpp"
 #include <cstring>
 #include <cstdio>
+#include <chrono>
 
 namespace open_dtc_server
 {
@@ -189,6 +190,68 @@ namespace open_dtc_server
                 }
 
                 return nullptr;
+            }
+
+            // Factory methods for creating messages
+            std::unique_ptr<LogonResponse> Protocol::create_logon_response(bool success, const std::string &message)
+            {
+                auto response = std::make_unique<LogonResponse>();
+                response->result = success ? 1 : 0;
+                response->result_text = message;
+                return response;
+            }
+
+            std::unique_ptr<MarketDataUpdateTrade> Protocol::create_trade_update(
+                uint16_t symbol_id, double price, double volume, uint64_t timestamp)
+            {
+                auto update = std::make_unique<MarketDataUpdateTrade>();
+                update->symbol_id = symbol_id;
+                update->price = price;
+                update->volume = volume;
+                update->date_time = timestamp;
+                return update;
+            }
+
+            std::unique_ptr<MarketDataUpdateBidAsk> Protocol::create_bid_ask_update(
+                uint16_t symbol_id, double bid_price, float bid_qty,
+                double ask_price, float ask_qty, uint64_t timestamp)
+            {
+                auto update = std::make_unique<MarketDataUpdateBidAsk>();
+                update->symbol_id = symbol_id;
+                update->bid_price = bid_price;
+                update->bid_quantity = bid_qty;
+                update->ask_price = ask_price;
+                update->ask_quantity = ask_qty;
+                update->date_time = timestamp;
+                return update;
+            }
+
+            // Static utility methods
+            uint64_t Protocol::get_current_timestamp()
+            {
+                auto now = std::chrono::system_clock::now();
+                auto time_t = std::chrono::system_clock::to_time_t(now);
+                return static_cast<uint64_t>(time_t);
+            }
+
+            MessageType Protocol::get_message_type(const uint8_t *data, uint16_t size)
+            {
+                if (!data || size < sizeof(MessageHeader))
+                {
+                    return MessageType::LOGOFF; // Use LOGOFF as default/error value
+                }
+                const MessageHeader *header = reinterpret_cast<const MessageHeader *>(data);
+                return static_cast<MessageType>(header->type);
+            }
+
+            bool Protocol::validate_message_header(const uint8_t *data, uint16_t size)
+            {
+                if (!data || size < sizeof(MessageHeader))
+                {
+                    return false;
+                }
+                const MessageHeader *header = reinterpret_cast<const MessageHeader *>(data);
+                return header->size <= size && header->size >= sizeof(MessageHeader);
             }
 
         } // namespace dtc

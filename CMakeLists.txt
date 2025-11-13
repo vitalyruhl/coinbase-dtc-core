@@ -228,14 +228,14 @@ if (BUILD_TESTING AND ENABLE_TESTING)
     )
     
     # TEMPORARY: Disabled until Protocol methods are fully implemented
-    # add_executable(test_dtc_protocol
-    #     tests/core/dtc/test_dtc_protocol.cpp
-    # )
-    # target_link_libraries(test_dtc_protocol dtc_protocol dtc_util)
-    # target_include_directories(test_dtc_protocol PRIVATE
-    #     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    #     ${CMAKE_CURRENT_SOURCE_DIR}/settings
-    # )
+    add_executable(test_dtc_protocol
+        tests/core/dtc/test_dtc_protocol.cpp
+    )
+    target_link_libraries(test_dtc_protocol dtc_protocol dtc_util)
+    target_include_directories(test_dtc_protocol PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/settings
+    )
     
     add_executable(test_server
         tests/core/server/test_server.cpp
@@ -263,14 +263,14 @@ if (BUILD_TESTING AND ENABLE_TESTING)
     )
     
     # TEMPORARY: Disabled until Protocol methods are fully implemented
-    # add_executable(test_dtc_protocol_legacy
-    #     tests/test_dtc_protocol.cpp
-    # )
-    # target_link_libraries(test_dtc_protocol_legacy dtc_protocol dtc_util)
-    # target_include_directories(test_dtc_protocol_legacy PRIVATE
-    #     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    #     ${CMAKE_CURRENT_SOURCE_DIR}/settings
-    # )
+    add_executable(test_dtc_protocol_legacy
+        tests/test_dtc_protocol.cpp
+    )
+    target_link_libraries(test_dtc_protocol_legacy dtc_protocol dtc_util)
+    target_include_directories(test_dtc_protocol_legacy PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/settings
+    )
     
     # Exchange Tests - Coinbase
     # TEMPORARY: Disabled due to file corruption
@@ -413,10 +413,10 @@ if (BUILD_TESTING AND ENABLE_TESTING)
     # Windows-specific libraries for tests
     if(WIN32)
         target_link_libraries(test_basic ws2_32 wsock32)
-        # target_link_libraries(test_dtc_protocol ws2_32 wsock32)
+        target_link_libraries(test_dtc_protocol ws2_32 wsock32)
         target_link_libraries(test_server ws2_32 wsock32)
         target_link_libraries(test_dtc_client_legacy ws2_32 wsock32)
-        # target_link_libraries(test_dtc_protocol_legacy ws2_32 wsock32)
+        target_link_libraries(test_dtc_protocol_legacy ws2_32 wsock32)
         # target_link_libraries(test_coinbase_feed ws2_32 wsock32)  # DISABLED
         # target_link_libraries(test_advanced_trade_api ws2_32 wsock32)
         # target_link_libraries(test_jwt_auth ws2_32 wsock32)
@@ -431,10 +431,10 @@ if (BUILD_TESTING AND ENABLE_TESTING)
     
     # Add tests to CTest
     add_test(NAME BasicTest COMMAND test_basic)
-    # add_test(NAME DTCProtocolTest COMMAND test_dtc_protocol)
+    add_test(NAME DTCProtocolTest COMMAND test_dtc_protocol)
     add_test(NAME ServerTest COMMAND test_server)
     add_test(NAME DTCClientLegacyTest COMMAND test_dtc_client_legacy)
-    # add_test(NAME DTCProtocolLegacyTest COMMAND test_dtc_protocol_legacy)
+    add_test(NAME DTCProtocolLegacyTest COMMAND test_dtc_protocol_legacy)
     # add_test(NAME CoinbaseFeedTest COMMAND test_coinbase_feed)
     # add_test(NAME AdvancedTradeAPITest COMMAND test_advanced_trade_api)
     # add_test(NAME JWTAuthTest COMMAND test_jwt_auth)
