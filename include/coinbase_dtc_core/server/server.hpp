@@ -7,10 +7,11 @@
 #include <mutex>
 #include <functional>
 #include <map>
+#include <unordered_set>
 #include <cstring>
 #include "coinbase_dtc_core/dtc/protocol.hpp"
 #include "symbol_manager.hpp"
-#include "coinbase_dtc_core/feed/coinbase/websocket_client.hpp"
+#include "coinbase_dtc_core/feed/exchange_feed.hpp"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -77,6 +78,13 @@ public:
     std::string get_username() const { return username_; }
     uint64_t get_connection_time() const { return connection_time_; }
     
+    // Symbol subscription management
+    bool subscribe_symbol(uint32_t symbol_id, const std::string& symbol_name);
+    bool unsubscribe_symbol(uint32_t symbol_id);
+    bool is_subscribed_to_symbol(uint32_t symbol_id) const;
+    std::vector<uint32_t> get_subscribed_symbols() const;
+    size_t get_subscription_count() const;
+    
 private:
     int socket_;
     std::string remote_addr_;
@@ -85,6 +93,11 @@ private:
     uint64_t connection_time_;
     dtc::Protocol protocol_;
     std::mutex send_mutex_;
+    
+    // Symbol subscription tracking
+    mutable std::mutex subscriptions_mutex_;
+    std::unordered_set<uint32_t> subscribed_symbols_;
+    std::unordered_map<uint32_t, std::string> symbol_names_;
 };
 
 // Message Handler Callback Types
@@ -125,8 +138,18 @@ public:
                                   double ask_price, double ask_qty, uint64_t timestamp);
     
     // WebSocket market data callbacks
-    void on_trade_data(const feed::coinbase::TradeData& trade);
-    void on_level2_data(const feed::coinbase::Level2Data& level2);
+    void on_trade_data(const feed::MarketTrade& trade);
+    void on_level2_data(const feed::MarketLevel2& level2);
+    
+    // Dynamic symbol management
+    bool handle_market_data_request(std::shared_ptr<ClientSession> client, const dtc::MarketDataRequest& request);
+    void update_websocket_subscriptions();
+    std::vector<std::string> get_active_symbols() const;
+    
+    // Exchange management
+    bool add_exchange(const std::string& exchange_name);
+    bool remove_exchange(const std::string& exchange_name);
+    std::vector<std::string> get_active_exchanges() const;
     void broadcast_market_data(const dtc::MarketDataUpdateTrade& update);
     void broadcast_market_data(const dtc::MarketDataUpdateBidAsk& update);
     
@@ -170,6 +193,10 @@ private:
     // Symbol management
     std::unique_ptr<SymbolManager> symbol_manager_;
     
+    // Dynamic subscription tracking
+    mutable std::mutex active_symbols_mutex_;
+    std::unordered_set<std::string> active_websocket_symbols_;
+    
     // Threading
     std::thread accept_thread_;
     std::vector<std::thread> client_threads_;
@@ -179,7 +206,7 @@ private:
     mutable std::mutex clients_mutex_;
     
     // Market data components
-    std::unique_ptr<feed::coinbase::WebSocketClient> ws_client_;
+    std::unique_ptr<feed::MultiExchangeFeed> multi_exchange_feed_;
     
     // Message handlers
     std::map<dtc::MessageType, MessageHandler> message_handlers_;

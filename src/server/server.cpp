@@ -84,33 +84,25 @@ Server::Server(const ServerConfig& config)
 }
 
 void Server::initialize_websocket_client() {
-    ws_client_ = std::make_unique<feed::coinbase::WebSocketClient>();
+    multi_exchange_feed_ = std::make_unique<feed::MultiExchangeFeed>();
     
-    // Set callbacks
-    ws_client_->set_trade_callback([this](const feed::coinbase::TradeData& trade) {
+    // Set callbacks for aggregated market data
+    multi_exchange_feed_->set_trade_callback([this](const feed::MarketTrade& trade) {
         this->on_trade_data(trade);
     });
     
-    ws_client_->set_level2_callback([this](const feed::coinbase::Level2Data& level2) {
+    multi_exchange_feed_->set_level2_callback([this](const feed::MarketLevel2& level2) {
         this->on_level2_data(level2);
     });
     
-    // Connect and subscribe to all symbols
-    if (ws_client_->connect()) {
-        auto symbols = symbol_manager_->get_all_symbols();
-        std::vector<std::string> symbol_names;
-        for (const auto& symbol : symbols) {
-            symbol_names.push_back(symbol->symbol);
-        }
-        
-        if (ws_client_->subscribe_multiple_symbols(symbol_names)) {
-            util::log("[Server] Subscribed to " + std::to_string(symbol_names.size()) + " symbols for market data");
-        } else {
-            util::log("[Server] Warning: Failed to subscribe to some symbols");
-        }
+    // Add default exchanges
+    if (add_exchange("coinbase")) {
+        util::log("[SERVER] Added Coinbase exchange successfully");
     } else {
-        util::log("[Server] Warning: Could not connect to WebSocket feed");
+        util::log("[SERVER] Warning: Failed to add Coinbase exchange");
     }
+    
+    util::log("[SERVER] Multi-exchange feed initialized - ready for dynamic subscriptions");
 }
 
 Server::~Server() {
@@ -419,13 +411,48 @@ void Server::handle_market_data_request(std::shared_ptr<ClientSession> client, s
     auto* md_req = static_cast<dtc::MarketDataRequest*>(message.get());
     
     util::log("[MARKET] Market data request for symbol: '" + std::string(md_req->symbol) + 
-              "' from user: " + client->get_username());
+              "' (action: " + std::to_string(md_req->request_action) + 
+              ") from user: " + client->get_username());
     
-    client->set_state(ClientState::SUBSCRIBED);
-    
-    // Here you would typically store the subscription and start sending market data
-    // For now, we'll just acknowledge the subscription
-    util::log("[OK] Client subscribed to market data: " + client->get_username());
+    if (md_req->request_action == 1) { // Subscribe
+        // Find symbol info
+        auto symbol_info = symbol_manager_->get_symbol_by_name(md_req->symbol);
+        if (!symbol_info) {
+            util::log("[ERROR] Unknown symbol: " + std::string(md_req->symbol));
+            return;
+        }
+        
+        // Subscribe client to symbol
+        bool success = client->subscribe_symbol(symbol_info->symbol_id, symbol_info->symbol);
+        
+        if (success) {
+            // Update client state if first subscription
+            if (client->get_subscription_count() == 1) {
+                client->set_state(ClientState::SUBSCRIBED);
+            }
+            
+            // Update WebSocket subscriptions for bandwidth optimization
+            update_websocket_subscriptions();
+            
+            util::log("[OK] Client " + client->get_username() + " subscribed to " + 
+                      symbol_info->symbol + " (ID: " + std::to_string(symbol_info->symbol_id) + ")");
+        }
+        
+    } else if (md_req->request_action == 2) { // Unsubscribe
+        // Find symbol info
+        auto symbol_info = symbol_manager_->get_symbol_by_name(md_req->symbol);
+        if (symbol_info) {
+            bool success = client->unsubscribe_symbol(symbol_info->symbol_id);
+            
+            if (success) {
+                // Update WebSocket subscriptions for bandwidth optimization
+                update_websocket_subscriptions();
+                
+                util::log("[OK] Client " + client->get_username() + " unsubscribed from " + 
+                          symbol_info->symbol + " (ID: " + std::to_string(symbol_info->symbol_id) + ")");
+            }
+        }
+    }
 }
 
 // Client management functions
@@ -537,11 +564,15 @@ void Server::on_trade_data(const feed::coinbase::TradeData& trade) {
               std::to_string(trade.size));
 }
 
-void Server::on_level2_data(const feed::coinbase::Level2Data& level2) {
-    // Find symbol info
-    auto symbol_info = symbol_manager_->get_symbol_by_name(level2.product_id);
+void Server::on_level2_data(const feed::MarketLevel2& level2) {
+    // Find symbol info using normalized symbol name
+    auto symbol_info = symbol_manager_->get_symbol_by_name(level2.symbol);
     if (!symbol_info) {
-        return; // Unknown symbol
+        // Try with exchange-specific format
+        symbol_info = symbol_manager_->get_symbol_by_exchange_symbol(level2.symbol, level2.exchange);
+        if (!symbol_info) {
+            return; // Unknown symbol
+        }
     }
     
     // Create DTC MarketDataUpdateBidAsk
@@ -553,14 +584,14 @@ void Server::on_level2_data(const feed::coinbase::Level2Data& level2) {
     update.ask_quantity = level2.ask_size;
     update.date_time = level2.timestamp;
     
-    // Broadcast to all subscribed clients
+    // Broadcast to subscribed clients
     broadcast_market_data(update);
 }
 
 void Server::broadcast_market_data(const dtc::MarketDataUpdateTrade& update) {
     auto clients = get_clients();
     for (auto& client : clients) {
-        if (client->is_authenticated() && client->get_state() == ClientState::SUBSCRIBED) {
+        if (client->is_authenticated() && client->is_subscribed_to_symbol(update.symbol_id)) {
             client->send_message(update);
         }
     }
@@ -569,10 +600,115 @@ void Server::broadcast_market_data(const dtc::MarketDataUpdateTrade& update) {
 void Server::broadcast_market_data(const dtc::MarketDataUpdateBidAsk& update) {
     auto clients = get_clients();
     for (auto& client : clients) {
-        if (client->is_authenticated() && client->get_state() == ClientState::SUBSCRIBED) {
+        if (client->is_authenticated() && client->is_subscribed_to_symbol(update.symbol_id)) {
             client->send_message(update);
         }
     }
+}
+
+// Dynamic Symbol Subscription Management
+
+bool ClientSession::subscribe_symbol(uint32_t symbol_id, const std::string& symbol_name) {
+    std::lock_guard<std::mutex> lock(subscriptions_mutex_);
+    
+    if (subscribed_symbols_.find(symbol_id) != subscribed_symbols_.end()) {
+        return true; // Already subscribed
+    }
+    
+    subscribed_symbols_.insert(symbol_id);
+    symbol_names_[symbol_id] = symbol_name;
+    
+    util::log("[SUB] Client " + username_ + " subscribed to " + symbol_name + " (ID: " + std::to_string(symbol_id) + ")");
+    return true;
+}
+
+bool ClientSession::unsubscribe_symbol(uint32_t symbol_id) {
+    std::lock_guard<std::mutex> lock(subscriptions_mutex_);
+    
+    auto it = subscribed_symbols_.find(symbol_id);
+    if (it == subscribed_symbols_.end()) {
+        return false; // Not subscribed
+    }
+    
+    std::string symbol_name = symbol_names_[symbol_id];
+    subscribed_symbols_.erase(it);
+    symbol_names_.erase(symbol_id);
+    
+    util::log("[UNSUB] Client " + username_ + " unsubscribed from " + symbol_name + " (ID: " + std::to_string(symbol_id) + ")");
+    return true;
+}
+
+bool ClientSession::is_subscribed_to_symbol(uint32_t symbol_id) const {
+    std::lock_guard<std::mutex> lock(subscriptions_mutex_);
+    return subscribed_symbols_.find(symbol_id) != subscribed_symbols_.end();
+}
+
+std::vector<uint32_t> ClientSession::get_subscribed_symbols() const {
+    std::lock_guard<std::mutex> lock(subscriptions_mutex_);
+    std::vector<uint32_t> symbols(subscribed_symbols_.begin(), subscribed_symbols_.end());
+    return symbols;
+}
+
+size_t ClientSession::get_subscription_count() const {
+    std::lock_guard<std::mutex> lock(subscriptions_mutex_);
+    return subscribed_symbols_.size();
+}
+
+void Server::update_websocket_subscriptions() {
+    std::unordered_set<std::string> needed_symbols;
+    
+    // Collect all symbols that at least one client is subscribed to
+    auto clients = get_clients();
+    for (auto& client : clients) {
+        if (client->is_authenticated()) {
+            auto subscribed_symbol_ids = client->get_subscribed_symbols();
+            for (uint32_t symbol_id : subscribed_symbol_ids) {
+                auto symbol_info = symbol_manager_->get_symbol_by_id(symbol_id);
+                if (symbol_info) {
+                    needed_symbols.insert(symbol_info->symbol);
+                }
+            }
+        }
+    }
+    
+    // Update active symbols if changed
+    {
+        std::lock_guard<std::mutex> lock(active_symbols_mutex_);
+        if (needed_symbols != active_websocket_symbols_) {
+            // Find symbols to add
+            for (const auto& symbol : needed_symbols) {
+                if (active_websocket_symbols_.find(symbol) == active_websocket_symbols_.end()) {
+                    // Subscribe on all active exchanges
+                    if (multi_exchange_feed_) {
+                        multi_exchange_feed_->subscribe_symbol(symbol);
+                        util::log("[SERVER] Added subscription for " + symbol + " on all exchanges");
+                    }
+                }
+            }
+            
+            // Find symbols to remove
+            for (const auto& symbol : active_websocket_symbols_) {
+                if (needed_symbols.find(symbol) == needed_symbols.end()) {
+                    // Unsubscribe from all exchanges
+                    if (multi_exchange_feed_) {
+                        multi_exchange_feed_->unsubscribe_symbol(symbol);
+                        util::log("[SERVER] Removed subscription for " + symbol + " from all exchanges");
+                    }
+                }
+            }
+            
+            // Update active symbols
+            active_websocket_symbols_ = needed_symbols;
+            
+            util::log("[SERVER] Dynamic subscriptions updated: " + std::to_string(needed_symbols.size()) + " active symbols");
+        }
+    }
+}
+
+std::vector<std::string> Server::get_active_symbols() const {
+    std::lock_guard<std::mutex> lock(active_symbols_mutex_);
+    std::vector<std::string> symbols(active_websocket_symbols_.begin(), active_websocket_symbols_.end());
+    return symbols;
 }
 
 } // namespace server

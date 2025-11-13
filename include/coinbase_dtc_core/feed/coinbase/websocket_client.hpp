@@ -7,6 +7,12 @@
 #include <mutex>
 #include <queue>
 #include <memory>
+#include <vector>
+#include <sstream>
+#include <iostream>
+#include <random>
+#include <iomanip>
+#include <unordered_map>
 
 #ifdef _WIN32
 #include <winsock2.h>

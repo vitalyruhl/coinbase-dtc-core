@@ -156,7 +156,8 @@ public:
         using namespace coinbase_dtc_core::dtc;
         
         Protocol protocol;
-        std::vector<uint8_t> buffer(8192);
+        std::vector<uint8_t> message_buffer;
+        message_buffer.reserve(8192); // Buffer for multiple messages
         
         std::cout << "[LISTEN] Listening for messages (timeout: " << timeout_seconds << "s)..." << std::endl;
         
@@ -175,57 +176,93 @@ public:
         time_t start_time = time(nullptr);
         
         while (time(nullptr) - start_time < timeout_seconds) {
-            int bytes_received = recv(socket_, reinterpret_cast<char*>(buffer.data()), 
-                                    static_cast<int>(buffer.size()), 0);
+            std::vector<uint8_t> recv_buffer(8192);
+            int bytes_received = recv(socket_, reinterpret_cast<char*>(recv_buffer.data()), 
+                                    static_cast<int>(recv_buffer.size()), 0);
             
             if (bytes_received > 0) {
                 std::cout << "[DEBUG] Received " << bytes_received << " bytes from server" << std::endl;
                 
-                // Debug: Print raw bytes
-                std::cout << "[DEBUG] Raw data: ";
-                int max_bytes = (bytes_received < 16) ? bytes_received : 16;
-                for (int i = 0; i < max_bytes; ++i) {
-                    printf("%02X ", buffer[i]);
-                }
-                std::cout << std::endl;
+                // Append to message buffer
+                message_buffer.insert(message_buffer.end(), recv_buffer.begin(), recv_buffer.begin() + bytes_received);
                 
-                auto message = protocol.parse_message(buffer.data(), static_cast<uint16_t>(bytes_received));
-                
-                if (message) {
-                    messages_received++;
-                    auto type = message->get_type();
-                    std::cout << "[RECV] Successfully parsed message type: " << static_cast<int>(type) << std::endl;
+                // Process all complete messages in buffer
+                size_t buffer_pos = 0;
+                while (buffer_pos + sizeof(MessageHeader) <= message_buffer.size()) {
+                    // Read message header to get expected size
+                    const MessageHeader* header = reinterpret_cast<const MessageHeader*>(message_buffer.data() + buffer_pos);
+                    uint16_t expected_size = header->size;
+                    uint16_t message_type = header->type;
                     
-                    switch (type) {
-                        case MessageType::LOGON_RESPONSE: {
-                            auto* response = static_cast<LogonResponse*>(message.get());
-                            std::cout << "[RECV] Logon Response: " 
-                                     << (response->result ? "[OK] Success" : "[ERROR] Failed") 
-                                     << " - " << response->result_text << std::endl;
-                            break;
+                    std::cout << "[DEBUG] Processing message at offset " << buffer_pos 
+                              << ", expected size: " << expected_size 
+                              << ", type: " << message_type << std::endl;
+                    
+                    // Check if we have the complete message
+                    if (buffer_pos + expected_size <= message_buffer.size()) {
+                        // Debug: Print first 16 bytes of this message
+                        std::cout << "[DEBUG] Message data: ";
+                        int max_debug_bytes = (expected_size < 16) ? expected_size : 16;
+                        for (int i = 0; i < max_debug_bytes; ++i) {
+                            printf("%02X ", message_buffer[buffer_pos + i]);
                         }
-                        case MessageType::MARKET_DATA_UPDATE_TRADE: {
-                            auto* trade = static_cast<MarketDataUpdateTrade*>(message.get());
-                            std::cout << "[TRADE] Trade Update: " << get_symbol_info(trade->symbol_id)
-                                     << " - Price: $" << trade->price 
-                                     << " Vol: " << trade->volume << std::endl;
-                            break;
+                        std::cout << std::endl;
+                        
+                        // Parse this specific message
+                        auto message = protocol.parse_message(message_buffer.data() + buffer_pos, expected_size);
+                        
+                        if (message) {
+                            messages_received++;
+                            auto type = message->get_type();
+                            std::cout << "[RECV] Successfully parsed message type: " << static_cast<int>(type) << std::endl;
+                            
+                            switch (type) {
+                                case MessageType::LOGON_RESPONSE: {
+                                    auto* response = static_cast<LogonResponse*>(message.get());
+                                    std::cout << "[RECV] Logon Response: " 
+                                             << (response->result ? "[OK] Success" : "[ERROR] Failed") 
+                                             << " - " << response->result_text << std::endl;
+                                    break;
+                                }
+                                case MessageType::MARKET_DATA_UPDATE_TRADE: {
+                                    auto* trade = static_cast<MarketDataUpdateTrade*>(message.get());
+                                    std::cout << "[TRADE] Trade Update: " << get_symbol_info(trade->symbol_id)
+                                             << " - Price: $" << trade->price 
+                                             << " Vol: " << trade->volume << std::endl;
+                                    break;
+                                }
+                                case MessageType::MARKET_DATA_UPDATE_BID_ASK: {
+                                    auto* book = static_cast<MarketDataUpdateBidAsk*>(message.get());
+                                    std::cout << "[BOOK] OrderBook: " << get_symbol_info(book->symbol_id)
+                                             << " - Bid: $" << book->bid_price << " x " << book->bid_quantity
+                                             << " | Ask: $" << book->ask_price << " x " << book->ask_quantity 
+                                             << std::endl;
+                                    break;
+                                }
+                                default:
+                                    std::cout << "[RECV] Unknown message type: " << static_cast<int>(type) << std::endl;
+                                    break;
+                            }
+                        } else {
+                            std::cout << "[DEBUG] Failed to parse message at offset " << buffer_pos 
+                                      << " (size: " << expected_size << ")" << std::endl;
                         }
-                        case MessageType::MARKET_DATA_UPDATE_BID_ASK: {
-                            auto* book = static_cast<MarketDataUpdateBidAsk*>(message.get());
-                            std::cout << "[BOOK] OrderBook: " << get_symbol_info(book->symbol_id)
-                                     << " - Bid: $" << book->bid_price << " x " << book->bid_quantity
-                                     << " | Ask: $" << book->ask_price << " x " << book->ask_quantity 
-                                     << std::endl;
-                            break;
-                        }
-                        default:
-                            std::cout << "[RECV] Unknown message type: " << static_cast<int>(type) << std::endl;
-                            break;
+                        
+                        // Move to next message
+                        buffer_pos += expected_size;
+                    } else {
+                        // Need more data for this message
+                        std::cout << "[DEBUG] Incomplete message, need " << expected_size 
+                                  << " bytes but only have " << (message_buffer.size() - buffer_pos) << std::endl;
+                        break;
                     }
-                } else {
-                    std::cout << "[DEBUG] Failed to parse message (" << bytes_received << " bytes)" << std::endl;
                 }
+                
+                // Remove processed messages from buffer
+                if (buffer_pos > 0) {
+                    message_buffer.erase(message_buffer.begin(), message_buffer.begin() + buffer_pos);
+                }
+                
             } else if (bytes_received == 0) {
                 std::cout << "[DISC] Server closed connection" << std::endl;
                 break;

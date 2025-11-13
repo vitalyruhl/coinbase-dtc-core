@@ -244,3 +244,8 @@ target_include_directories(test_dtc_client PRIVATE include)
 if(WIN32)
     target_link_libraries(test_dtc_client ws2_32)
 endif()
+
+# Debug sizes executable
+add_executable(debug_sizes debug_sizes.cpp)
+target_link_libraries(debug_sizes coinbase_dtc_core)
+target_include_directories(debug_sizes PRIVATE include)

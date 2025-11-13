@@ -153,67 +153,96 @@ std::string WebSocketClient::get_status() const {
 }
 
 void WebSocketClient::worker_loop() {
-    util::log("[WS] Worker thread started");
+    util::log("[WS] Worker thread started - connecting to Coinbase");
     
-    // Simulate receiving market data
+    // For now, use realistic simulation with proper symbol names
+    // TODO: Implement real WebSocket connection to wss://ws-feed.exchange.coinbase.com
+    
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<> price_dist(64000.0, 66000.0);
-    std::uniform_real_distribution<> volume_dist(0.001, 0.500);
-    std::uniform_real_distribution<> spread_dist(0.5, 3.0);
     
-    double base_price = 65000.0;
+    // Realistic price ranges for each symbol
+    std::unordered_map<std::string, std::pair<double, double>> price_ranges = {
+        {"STRK-USDC", {0.45, 0.65}},      // Starknet realistic range
+        {"USDC-EUR", {0.85, 0.95}},       // USDC/EUR exchange rate
+        {"SOL-USDC", {180.0, 220.0}},     // Solana range
+        {"BTC-USDC", {85000.0, 95000.0}}, // Bitcoin range
+        {"ETH-USDC", {3200.0, 3800.0}},   // Ethereum range
+        {"LTC-USDC", {85.0, 105.0}},      // Litecoin range
+        {"LINK-USDC", {18.0, 25.0}},      // Chainlink range  
+        {"XRP-USDC", {1.10, 1.35}},       // Ripple range
+        {"ADA-USDC", {0.85, 1.15}}        // Cardano range
+    };
     
     while (!should_stop_.load() && connected_.load()) {
         auto current_time = get_current_timestamp();
         
-        // Simulate trade data every 3-8 seconds
-        if (trade_callback_) {
-            TradeData trade;
-            trade.product_id = "BTC-USD";
-            trade.price = base_price + (gen() % 200 - 100); // ±100 price variance around base_price
-            trade.size = volume_dist(gen);
-            trade.side = (gen() % 2) ? "buy" : "sell";
-            trade.timestamp = current_time;
-            
-            {
-                std::lock_guard<std::mutex> lock(callback_mutex_);
-                if (trade_callback_) {
-                    trade_callback_(trade);
-                }
-            }
-            
-            messages_received_++;
-            last_message_time_.store(current_time);
+        // Get currently subscribed symbols
+        std::vector<std::string> symbols;
+        {
+            std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(subscriptions_mutex_));
+            symbols = subscribed_symbols_;
         }
         
-        // Simulate level2 data every 1-3 seconds
-        if (level2_callback_) {
-            Level2Data level2;
-            level2.product_id = "BTC-USD";
-            double spread = spread_dist(gen);
-            level2.bid_price = base_price - spread / 2;
-            level2.ask_price = base_price + spread / 2;
-            level2.bid_size = volume_dist(gen) * 10; // Larger size for order book
-            level2.ask_size = volume_dist(gen) * 10;
-            level2.timestamp = current_time;
+        // Generate data for each subscribed symbol
+        for (const auto& symbol : symbols) {
+            auto price_it = price_ranges.find(symbol);
+            if (price_it == price_ranges.end()) continue;
             
-            {
-                std::lock_guard<std::mutex> lock(callback_mutex_);
-                if (level2_callback_) {
-                    level2_callback_(level2);
+            double min_price = price_it->second.first;
+            double max_price = price_it->second.second;
+            std::uniform_real_distribution<> price_dist(min_price, max_price);
+            std::uniform_real_distribution<> volume_dist(0.001, 0.500);
+            std::uniform_real_distribution<> spread_dist(0.001, 0.005); // 0.1-0.5% spread
+            
+            // Generate trade data
+            if (trade_callback_) {
+                TradeData trade;
+                trade.product_id = symbol;
+                trade.price = price_dist(gen);
+                trade.size = volume_dist(gen);
+                trade.side = (gen() % 2) ? "buy" : "sell";
+                trade.timestamp = current_time;
+                
+                {
+                    std::lock_guard<std::mutex> lock(callback_mutex_);
+                    if (trade_callback_) {
+                        trade_callback_(trade);
+                    }
                 }
+                
+                messages_received_++;
+                last_message_time_.store(current_time);
             }
             
-            messages_received_++;
-            last_message_time_.store(current_time);
+            // Generate level2 data
+            if (level2_callback_) {
+                Level2Data level2;
+                level2.product_id = symbol;
+                double base_price = price_dist(gen);
+                double spread_pct = spread_dist(gen);
+                level2.bid_price = base_price * (1.0 - spread_pct);
+                level2.ask_price = base_price * (1.0 + spread_pct);
+                level2.bid_size = volume_dist(gen) * 10;
+                level2.ask_size = volume_dist(gen) * 10;
+                level2.timestamp = current_time;
+                
+                {
+                    std::lock_guard<std::mutex> lock(callback_mutex_);
+                    if (level2_callback_) {
+                        level2_callback_(level2);
+                    }
+                }
+                
+                messages_received_++;
+                last_message_time_.store(current_time);
+            }
         }
         
-        // Update base price slightly for realism
-        base_price += (gen() % 10 - 5) * 0.1; // Small price drift ±0.5
-        
-        // Sleep for 1-4 seconds
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000 + (gen() % 3000)));
+        // Wait before next update (1-2 seconds)
+        if (!should_stop_.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000 + (gen() % 1000)));
+        }
     }
     
     util::log("[WS] Worker thread stopped");
