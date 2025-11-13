@@ -26,12 +26,13 @@ jobs:
     - name: Package artifacts
       run: |
         mkdir -p release
-        cp build/Release/dtc_util.lib release/ 2>/dev/null || cp build/libdtc_util.a release/ || true
-        cp build/Release/dtc_protocol.lib release/ 2>/dev/null || cp build/libdtc_protocol.a release/ || true
-        cp build/Release/dtc_auth.lib release/ 2>/dev/null || cp build/libdtc_auth.a release/ || true
-        cp build/Release/exchange_base.lib release/ 2>/dev/null || cp build/libexchange_base.a release/ || true
-        cp build/Release/binance_feed.lib release/ 2>/dev/null || cp build/libbinance_feed.a release/ || true
-        cp build/Release/coinbase_feed.lib release/ 2>/dev/null || cp build/libcoinbase_feed.a release/ || true
+        cp build/libdtc_util.a release/ || echo "dtc_util library not found"
+        cp build/libdtc_protocol.a release/ || echo "dtc_protocol library not found"
+        cp build/libdtc_auth.a release/ || echo "dtc_auth library not found"
+        cp build/libexchange_base.a release/ || echo "exchange_base library not found"
+        cp build/libbinance_feed.a release/ || echo "binance_feed library not found"
+        cp build/libcoinbase_feed.a release/ || echo "coinbase_feed library not found"
+        ls -la release/
         tar -czf coinbase-dtc-core-libraries-linux-x64.tar.gz -C release .
 
     - name: Extract version from tag
@@ -44,11 +45,25 @@ jobs:
         files: |
           coinbase-dtc-core-libraries-linux-x64.tar.gz
         body: |
-          ## Changes in this release
-          - Built with CMake on Ubuntu latest
-          - Core DTC libraries available for integration
+          ## Open DTC Server - Core Libraries Release ${{ steps.get_version.outputs.VERSION }}
+          
+          This release contains the core DTC (Data Trading Client) protocol libraries:
+          
+          - **dtc_util** - Core utility functions
+          - **dtc_protocol** - DTC protocol implementation
+          - **dtc_auth** - Authentication library
+          - **exchange_base** - Base exchange interface
+          - **binance_feed** - Binance data feed integration
+          - **coinbase_feed** - Coinbase data feed integration
           
           ## Installation
-          Download the release archive and extract the binaries and libraries.
+          Download and extract the archive to get the compiled libraries:
+          ```bash
+          wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/coinbase-dtc-core-libraries-linux-x64.tar.gz
+          tar -xzf coinbase-dtc-core-libraries-linux-x64.tar.gz
+          ```
+          
+          ## Integration
+          Link these libraries with your DTC client applications.
         draft: false
         prerelease: false
