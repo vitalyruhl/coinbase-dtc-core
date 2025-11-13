@@ -1,33 +1,48 @@
 services:
-  coinbase-dtc-core:
+  # Test runner - runs all tests in a container
+  test:
+    build:
+      context: .
+      target: test
+    volumes:
+      - .:/app:ro
+    environment:
+      - COINBASE_TEST_MODE=mock
+    command: ["ctest", "--build-config", "Release", "--test-dir", "build", "--output-on-failure", "--verbose"]
+
+  # Production DTC server
+  dtc-server:
     build:
       context: .
       dockerfile: Dockerfile
       target: runtime
     ports:
-      - "8080:8080"  # Adjust port as needed
+      - "11000:11000"  # DTC protocol port
     restart: unless-stopped
-    # Environment variables (add as needed)
     environment:
-      - LOG_LEVEL=info
-    # Volumes for persistent data (if needed)
-    # volumes:
-    #   - ./data:/app/data
+      - DTC_SERVER_PORT=11000
+      - DTC_LOG_LEVEL=info
     
   # Development service with mounted source code
-  coinbase-dtc-core-dev:
+  dev:
     build:
       context: .
       dockerfile: Dockerfile
       target: builder
     ports:
-      - "8080:8080"
+      - "11000:11000"
     volumes:
       - .:/app
-      - /app/build  # Anonymous volume for build artifacts
+      - dtc-build-cache:/app/build
     working_dir: /app
     command: /bin/bash
     stdin_open: true
+    tty: true
+    environment:
+      - COINBASE_TEST_MODE=mock
+
+volumes:
+  dtc-build-cache:
     tty: true
     profiles:
       - dev

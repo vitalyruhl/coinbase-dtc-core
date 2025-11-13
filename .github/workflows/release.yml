@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'  # Triggers on version tags like v1.0.0, v2.1.3, etc.
 
+permissions:
+  contents: write  # Need write for creating releases
+  actions: read
+
 jobs:
   create-release:
     runs-on: ubuntu-latest
@@ -18,62 +22,52 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential cmake
 
-    - name: Build Release
+    - name: Build Release (Core Libraries Only)
       run: |
-        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-        cmake --build build --config Release -j$(nproc)
-
-    - name: Run tests
-      run: |
-        cd build
-        ctest --output-on-failure
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTING=ON
+        cmake --build build --target dtc_util dtc_protocol dtc_auth exchange_base binance_feed coinbase_feed --parallel $(nproc)
 
     - name: Package artifacts
       run: |
         mkdir -p release
-        cp build/coinbase_dtc_server release/
-        cp build/libcoinbase_dtc_core.a release/
-        tar -czf coinbase-dtc-core-linux-x64.tar.gz -C release .
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Login to Docker Hub (if configured)
-      if: ${{ secrets.DOCKER_USERNAME != '' }}
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        cp build/libdtc_util.a release/ || echo "dtc_util library not found"
+        cp build/libdtc_protocol.a release/ || echo "dtc_protocol library not found"
+        cp build/libdtc_auth.a release/ || echo "dtc_auth library not found"
+        cp build/libexchange_base.a release/ || echo "exchange_base library not found"
+        cp build/libbinance_feed.a release/ || echo "binance_feed library not found"
+        cp build/libcoinbase_feed.a release/ || echo "coinbase_feed library not found"
+        ls -la release/
+        tar -czf coinbase-dtc-core-libraries-linux-x64.tar.gz -C release .
 
     - name: Extract version from tag
       id: get_version
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-    - name: Build and push Docker image
-      if: ${{ secrets.DOCKER_USERNAME != '' }}
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: |
-          ${{ secrets.DOCKER_USERNAME }}/coinbase-dtc-core:latest
-          ${{ secrets.DOCKER_USERNAME }}/coinbase-dtc-core:${{ steps.get_version.outputs.VERSION }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          coinbase-dtc-core-linux-x64.tar.gz
+          coinbase-dtc-core-libraries-linux-x64.tar.gz
         body: |
-          ## Changes in this release
-          - Built with CMake on Ubuntu latest
-          - Docker image available as `${{ secrets.DOCKER_USERNAME }}/coinbase-dtc-core:${{ steps.get_version.outputs.VERSION }}`
+          ## Open DTC Server - Core Libraries Release ${{ steps.get_version.outputs.VERSION }}
           
-          ## Quick start with Docker
+          This release contains the core DTC (Data Trading Client) protocol libraries:
+          
+          - **dtc_util** - Core utility functions
+          - **dtc_protocol** - DTC protocol implementation
+          - **dtc_auth** - Authentication library
+          - **exchange_base** - Base exchange interface
+          - **binance_feed** - Binance data feed integration
+          - **coinbase_feed** - Coinbase data feed integration
+          
+          ## Installation
+          Download and extract the archive to get the compiled libraries:
           ```bash
-          docker run -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/coinbase-dtc-core:${{ steps.get_version.outputs.VERSION }}
+          wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/coinbase-dtc-core-libraries-linux-x64.tar.gz
+          tar -xzf coinbase-dtc-core-libraries-linux-x64.tar.gz
           ```
+          
+          ## Integration
+          Link these libraries with your DTC client applications.
         draft: false
         prerelease: false

@@ -1,4 +1,4 @@
-# Multi-stage build for coinbase-dtc-core
+# Multi-stage build for open-dtc-server (formerly coinbase-dtc-core)
 FROM ubuntu:22.04 AS builder
 
 # Install build dependencies
@@ -28,9 +28,9 @@ WORKDIR /app
 # Copy source code
 COPY . .
 
-# Build the project (skip failing decode_jwt target)
-RUN cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-RUN cmake --build build --parallel $(nproc) --target coinbase_dtc_server
+# Build the project with all tests enabled
+RUN cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTING=ON
+RUN cmake --build build --parallel $(nproc)
 
 # Runtime stage - smaller image
 FROM ubuntu:22.04 AS runtime
@@ -38,6 +38,8 @@ FROM ubuntu:22.04 AS runtime
 # Install minimal runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
+    libcurl4 \
+    libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy built executable from builder stage
@@ -45,13 +47,29 @@ COPY --from=builder /app/build/coinbase_dtc_server /usr/local/bin/coinbase_dtc_s
 RUN chmod +x /usr/local/bin/coinbase_dtc_server
 
 # Create non-root user for security
-RUN useradd -r -s /bin/false coinbase
+RUN useradd -r -s /bin/false dtcserver
 
 # Switch to non-root user
+USER dtcserver
 USER coinbase
 
-# Expose port (adjust as needed for your application)
-EXPOSE 8080
+# Expose port for DTC server
+EXPOSE 11000
 
 # Run the server
 CMD ["/usr/local/bin/coinbase_dtc_server"]
+
+# Test stage - for running tests in CI/CD
+FROM builder AS test
+
+# Install additional test dependencies
+RUN apt-get update && apt-get install -y \
+    valgrind \
+    gdb \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory back to build
+WORKDIR /app
+
+# Default command for test stage is to run tests
+CMD ["ctest", "--build-config", "Release", "--test-dir", "build", "--output-on-failure", "--verbose"]
