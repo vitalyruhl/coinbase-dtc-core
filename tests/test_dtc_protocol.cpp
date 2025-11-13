@@ -1,10 +1,11 @@
 #include "coinbase_dtc_core/core/dtc/protocol.hpp"
 #include <iostream>
 #include <cassert>
+#include <cstring>
 
 int main()
 {
-    using namespace open_dtc_server::dtc;
+    using namespace open_dtc_server::core::dtc;
 
     std::cout << "[TEST] Testing DTC Protocol Implementation..." << std::endl;
 
@@ -22,13 +23,13 @@ int main()
     std::cout << "   sizeof(MessageHeader): " << sizeof(MessageHeader) << std::endl;
     std::cout << "   protocol_version: " << logon_req.protocol_version << std::endl;
 
-    strncpy(logon_req.username, "testuser", sizeof(logon_req.username) - 1);
-    strncpy(logon_req.password, "testpass", sizeof(logon_req.password) - 1);
-    strncpy(logon_req.general_text_data, "CoinbaseDTC Client v1.0", sizeof(logon_req.general_text_data) - 1);
+    logon_req.username = "testuser";
+    logon_req.password = "testpass";
+    logon_req.general_text_data = "CoinbaseDTC Client v1.0";
 
     // Debug header before serialize
-    std::cout << "   header.size before serialize: " << logon_req.header.size << std::endl;
-    std::cout << "   header.type before serialize: " << logon_req.header.type << std::endl;
+    // std::cout << "   header.size before serialize: " << logon_req.header.size << std::endl;
+    // std::cout << "   header.type before serialize: " << logon_req.header.type << std::endl;
 
     auto serialized = logon_req.serialize();
     std::cout << "[OK] Logon request serialized: " << serialized.size() << " bytes" << std::endl;
@@ -71,14 +72,14 @@ int main()
     std::cout << "\n[TEST] Testing Market Data Request..." << std::endl;
     MarketDataRequest md_req;
     md_req.symbol_id = 1;
-    md_req.request_action = 1; // Subscribe
-    strncpy(md_req.symbol, "BTC-USD", sizeof(md_req.symbol) - 1);
+    md_req.request_action = RequestAction::SUBSCRIBE;
+    md_req.symbol = "BTC-USD";
 
     auto md_data = md_req.serialize();
     std::cout << "[OK] Market data request created: " << md_data.size() << " bytes" << std::endl;
     std::cout << "   Symbol: " << md_req.symbol << std::endl;
     std::cout << "   Symbol ID: " << md_req.symbol_id << std::endl;
-    std::cout << "   Action: " << (md_req.request_action == 1 ? "Subscribe" : "Unsubscribe") << std::endl;
+    std::cout << "   Action: " << (md_req.request_action == RequestAction::SUBSCRIBE ? "Subscribe" : "Unsubscribe") << std::endl;
 
     // Test 6: Create Trade Update
     std::cout << "\n[TEST] Testing Trade Update..." << std::endl;

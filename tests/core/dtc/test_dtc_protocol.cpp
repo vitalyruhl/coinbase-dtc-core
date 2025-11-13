@@ -2,20 +2,22 @@
 #include "coinbase_dtc_core/core/util/log.hpp"
 #include <iostream>
 #include <cassert>
+#include <cstring>
 
 int main()
 {
     using namespace open_dtc_server::core::dtc;
+    using namespace open_dtc_server::core;
 
-    util::log("[TEST] Testing DTC Protocol Implementation...");
+    open_dtc_server::util::log("[TEST] Testing DTC Protocol Implementation...");
 
     // Test 1: Protocol initialization
     dtc::Protocol protocol;
-    util::log("[OK] Protocol version: " + std::to_string(protocol.version()));
-    util::log("[OK] Protocol connected: " + std::string(protocol.is_connected() ? "Yes" : "No"));
+    open_dtc_server::util::log("[OK] Protocol version: " + protocol.version());
+    open_dtc_server::util::log("[OK] Protocol connected: " + std::string(protocol.is_connected() ? "Yes" : "No"));
 
     // Test 2: Create and serialize Logon Request
-    util::log("\n[TEST] Testing Logon Request...");
+    open_dtc_server::util::log("\n[TEST] Testing Logon Request...");
     dtc::LogonRequest logon_req;
 
     // Debug size calculations
@@ -23,13 +25,13 @@ int main()
     std::cout << "   sizeof(MessageHeader): " << sizeof(MessageHeader) << std::endl;
     std::cout << "   protocol_version: " << logon_req.protocol_version << std::endl;
 
-    strncpy(logon_req.username, "testuser", sizeof(logon_req.username) - 1);
-    strncpy(logon_req.password, "testpass", sizeof(logon_req.password) - 1);
-    strncpy(logon_req.general_text_data, "CoinbaseDTC Client v1.0", sizeof(logon_req.general_text_data) - 1);
+    logon_req.username = "testuser";
+    logon_req.password = "testpass";
+    logon_req.general_text_data = "CoinbaseDTC Client v1.0";
 
     // Debug header before serialize
-    std::cout << "   header.size before serialize: " << logon_req.header.size << std::endl;
-    std::cout << "   header.type before serialize: " << logon_req.header.type << std::endl;
+    // std::cout << "   header.size before serialize: " << logon_req.header.size << std::endl;
+    // std::cout << "   header.type before serialize: " << logon_req.header.type << std::endl;
 
     auto serialized = logon_req.serialize();
     std::cout << "[OK] Logon request serialized: " << serialized.size() << " bytes" << std::endl;
@@ -72,14 +74,14 @@ int main()
     std::cout << "\n[TEST] Testing Market Data Request..." << std::endl;
     MarketDataRequest md_req;
     md_req.symbol_id = 1;
-    md_req.request_action = 1; // Subscribe
-    strncpy(md_req.symbol, "BTC-USD", sizeof(md_req.symbol) - 1);
+    md_req.request_action = RequestAction::SUBSCRIBE;
+    md_req.symbol = "BTC-USD";
 
     auto md_data = md_req.serialize();
     std::cout << "[OK] Market data request created: " << md_data.size() << " bytes" << std::endl;
     std::cout << "   Symbol: " << md_req.symbol << std::endl;
     std::cout << "   Symbol ID: " << md_req.symbol_id << std::endl;
-    std::cout << "   Action: " << (md_req.request_action == 1 ? "Subscribe" : "Unsubscribe") << std::endl;
+    std::cout << "   Action: " << (md_req.request_action == RequestAction::SUBSCRIBE ? "Subscribe" : "Unsubscribe") << std::endl;
 
     // Test 6: Create Trade Update
     std::cout << "\n[TEST] Testing Trade Update..." << std::endl;

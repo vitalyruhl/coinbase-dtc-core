@@ -9,7 +9,7 @@
 #include <chrono>
 #include <unordered_set>
 
-namespace coinbase_dtc_core
+namespace open_dtc_server
 {
     namespace exchanges
     {
@@ -26,10 +26,10 @@ namespace coinbase_dtc_core
              * - Message structures
              * - API endpoints
              */
-            class BinanceFeed : public base::ExchangeFeedBase
+            class BinanceFeed : public open_dtc_server::exchanges::base::ExchangeFeedBase
             {
             public:
-                explicit BinanceFeed(const base::ExchangeConfig &config);
+                explicit BinanceFeed(const open_dtc_server::exchanges::base::ExchangeConfig &config);
                 ~BinanceFeed() override;
 
                 // ========================================================================

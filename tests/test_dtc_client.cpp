@@ -121,12 +121,12 @@ public:
 
     bool send_logon_request(const std::string &username, const std::string &password = "testpass")
     {
-        using namespace open_dtc_server::dtc;
+        using namespace open_dtc_server::core::dtc;
 
         LogonRequest logon_req;
-        strncpy(logon_req.username, username.c_str(), sizeof(logon_req.username) - 1);
-        strncpy(logon_req.password, password.c_str(), sizeof(logon_req.password) - 1);
-        strncpy(logon_req.general_text_data, "DTC Test Client v1.0", sizeof(logon_req.general_text_data) - 1);
+        logon_req.username = username;
+        logon_req.password = password;
+        logon_req.general_text_data = "DTC Test Client v1.0";
 
         auto data = logon_req.serialize();
 
@@ -147,12 +147,12 @@ public:
 
     bool send_market_data_request(const std::string &symbol)
     {
-        using namespace open_dtc_server::dtc;
+        using namespace open_dtc_server::core::dtc;
 
         MarketDataRequest md_req;
         md_req.symbol_id = 1;
-        md_req.request_action = 1; // Subscribe
-        strncpy(md_req.symbol, symbol.c_str(), sizeof(md_req.symbol) - 1);
+        md_req.request_action = RequestAction::SUBSCRIBE;
+        md_req.symbol = symbol;
 
         auto data = md_req.serialize();
 
@@ -173,7 +173,7 @@ public:
 
     bool receive_messages(int timeout_seconds = 30)
     {
-        using namespace open_dtc_server::dtc;
+        using namespace open_dtc_server::core::dtc;
 
         Protocol protocol;
         std::vector<uint8_t> message_buffer;
