@@ -32,20 +32,47 @@ namespace open_dtc_server
 
             uint16_t LogonResponse::get_size() const
             {
-                return sizeof(MessageHeader) + 100;
+                return sizeof(MessageHeader) + 1 + server_name.length() + 1; // +1 for result, +1 for null terminator
             }
 
             std::vector<uint8_t> LogonResponse::serialize() const
             {
-                std::vector<uint8_t> buffer(get_size());
-                MessageHeader header(get_size(), get_type());
+                // Simple serialization: header + result byte + server_name
+                size_t total_size = sizeof(MessageHeader) + 1 + server_name.length() + 1; // +1 for null terminator
+                std::vector<uint8_t> buffer(total_size);
+
+                MessageHeader header(total_size, get_type());
                 std::memcpy(buffer.data(), &header, sizeof(MessageHeader));
+
+                // Write result
+                buffer[sizeof(MessageHeader)] = result;
+
+                // Write server name (null-terminated string)
+                if (!server_name.empty())
+                {
+                    std::memcpy(buffer.data() + sizeof(MessageHeader) + 1, server_name.c_str(), server_name.length());
+                }
+                buffer[total_size - 1] = 0; // null terminator
+
                 return buffer;
             }
 
             bool LogonResponse::deserialize(const uint8_t *data, uint16_t size)
             {
-                return size >= sizeof(MessageHeader);
+                if (size < sizeof(MessageHeader) + 1)
+                    return false;
+
+                // Read result
+                result = data[sizeof(MessageHeader)];
+
+                // Read server name if present
+                if (size > sizeof(MessageHeader) + 1)
+                {
+                    const char *name_ptr = reinterpret_cast<const char *>(data + sizeof(MessageHeader) + 1);
+                    server_name = std::string(name_ptr, size - sizeof(MessageHeader) - 2); // -2 for result byte and null terminator
+                }
+
+                return true;
             }
 
             uint16_t MarketDataRequest::get_size() const
@@ -116,6 +143,44 @@ namespace open_dtc_server
             }
 
             bool Heartbeat::deserialize(const uint8_t *data, uint16_t size)
+            {
+                return size >= sizeof(MessageHeader);
+            }
+
+            // SecurityDefinitionForSymbolRequest implementation
+            uint16_t SecurityDefinitionForSymbolRequest::get_size() const
+            {
+                return sizeof(MessageHeader) + 50;
+            }
+
+            std::vector<uint8_t> SecurityDefinitionForSymbolRequest::serialize() const
+            {
+                std::vector<uint8_t> buffer(get_size());
+                MessageHeader header(get_size(), get_type());
+                std::memcpy(buffer.data(), &header, sizeof(MessageHeader));
+                return buffer;
+            }
+
+            bool SecurityDefinitionForSymbolRequest::deserialize(const uint8_t *data, uint16_t size)
+            {
+                return size >= sizeof(MessageHeader);
+            }
+
+            // SecurityDefinitionResponse implementation
+            uint16_t SecurityDefinitionResponse::get_size() const
+            {
+                return sizeof(MessageHeader) + 100;
+            }
+
+            std::vector<uint8_t> SecurityDefinitionResponse::serialize() const
+            {
+                std::vector<uint8_t> buffer(get_size());
+                MessageHeader header(get_size(), get_type());
+                std::memcpy(buffer.data(), &header, sizeof(MessageHeader));
+                return buffer;
+            }
+
+            bool SecurityDefinitionResponse::deserialize(const uint8_t *data, uint16_t size)
             {
                 return size >= sizeof(MessageHeader);
             }
@@ -252,6 +317,67 @@ namespace open_dtc_server
                 }
                 const MessageHeader *header = reinterpret_cast<const MessageHeader *>(data);
                 return header->size <= size && header->size >= sizeof(MessageHeader);
+            }
+
+            // Missing Protocol methods needed by server
+
+            std::vector<uint8_t> Protocol::create_message(const DTCMessage &message)
+            {
+                return message.serialize();
+            }
+
+            std::unique_ptr<Heartbeat> Protocol::create_heartbeat(uint32_t num_drops)
+            {
+                auto heartbeat = std::make_unique<Heartbeat>();
+                heartbeat->num_drops = num_drops;
+                heartbeat->current_date_time = get_current_timestamp();
+                return heartbeat;
+            }
+
+            std::unique_ptr<SecurityDefinitionResponse> Protocol::create_security_definition_response(
+                uint32_t request_id, const std::string &symbol, const std::string &exchange)
+            {
+                auto response = std::make_unique<SecurityDefinitionResponse>();
+                response->request_id = request_id;
+                response->symbol = symbol;
+                response->exchange = exchange;
+                response->security_type = 2; // 2 = Stock (crypto treated as stock for DTC)
+                response->description = symbol + " on " + exchange;
+                response->min_price_increment = 0.01f;
+                response->currency_value_per_increment = 0.01f;
+                response->has_market_depth_data = 1;
+                response->contract_size = 1.0f;
+                response->currency = "USD";
+                return response;
+            }
+
+            std::string Protocol::message_type_to_string(MessageType type)
+            {
+                switch (type)
+                {
+                case MessageType::LOGON_REQUEST:
+                    return "LOGON_REQUEST";
+                case MessageType::LOGON_RESPONSE:
+                    return "LOGON_RESPONSE";
+                case MessageType::HEARTBEAT:
+                    return "HEARTBEAT";
+                case MessageType::LOGOFF:
+                    return "LOGOFF";
+                case MessageType::MARKET_DATA_REQUEST:
+                    return "MARKET_DATA_REQUEST";
+                case MessageType::MARKET_DATA_REJECT:
+                    return "MARKET_DATA_REJECT";
+                case MessageType::MARKET_DATA_UPDATE_TRADE:
+                    return "MARKET_DATA_UPDATE_TRADE";
+                case MessageType::MARKET_DATA_UPDATE_BID_ASK:
+                    return "MARKET_DATA_UPDATE_BID_ASK";
+                case MessageType::SECURITY_DEFINITION_FOR_SYMBOL_REQUEST:
+                    return "SECURITY_DEFINITION_FOR_SYMBOL_REQUEST";
+                case MessageType::SECURITY_DEFINITION_RESPONSE:
+                    return "SECURITY_DEFINITION_RESPONSE";
+                default:
+                    return "UNKNOWN_" + std::to_string(static_cast<uint16_t>(type));
+                }
             }
 
         } // namespace dtc

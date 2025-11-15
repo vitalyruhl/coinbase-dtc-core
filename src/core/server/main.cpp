@@ -1,5 +1,6 @@
 #include "coinbase_dtc_core/core/server/server.hpp"
 #include "coinbase_dtc_core/core/util/log.hpp"
+#include "coinbase_dtc_core/exchanges/base/exchange_feed.hpp"
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -41,6 +42,28 @@ int main()
         DTCServer srv(config);
         g_server = &srv;
 
+        // Add Coinbase exchange for real market data
+        open_dtc_server::exchanges::base::ExchangeConfig coinbase_config;
+        coinbase_config.name = "coinbase"; // Must match factory name
+        coinbase_config.websocket_url = "wss://ws-feed.exchange.coinbase.com";
+        coinbase_config.api_url = "https://api.exchange.coinbase.com";
+        coinbase_config.port = 443;
+        coinbase_config.requires_auth = false; // For public market data
+        // Note: symbols will be configured separately through subscribe calls
+
+        if (!srv.add_exchange(coinbase_config))
+        {
+            open_dtc_server::util::log("Warning: Failed to add Coinbase exchange - continuing with mock data");
+        }
+        else
+        {
+            open_dtc_server::util::log("✅ Added Coinbase exchange for real market data");
+
+            // Subscribe to specific symbols
+            srv.subscribe_symbol("BTC-USD", "coinbase");
+            srv.subscribe_symbol("ETH-USD", "coinbase");
+            srv.subscribe_symbol("SOL-USD", "coinbase");
+        }
         open_dtc_server::util::log("Server configured, starting...");
 
         if (!srv.start())

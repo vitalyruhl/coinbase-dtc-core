@@ -80,6 +80,8 @@ private:
     // Network functions
     bool SendDTCMessage(const std::vector<uint8_t> &message);
     void ProcessIncomingData();
+    void ProcessDTCMessages();
+    void HandleDTCResponse(std::unique_ptr<open_dtc_server::core::dtc::DTCMessage> message);
 
     // Window and control handles
     HWND m_hwnd = nullptr;
@@ -104,6 +106,7 @@ private:
     SOCKET m_socket = INVALID_SOCKET;
     std::string m_serverHost = "127.0.0.1";
     int m_serverPort = 11099;
+    std::vector<uint8_t> m_incomingBuffer;
 
     // Window constants
     static constexpr int WINDOW_WIDTH = 800;

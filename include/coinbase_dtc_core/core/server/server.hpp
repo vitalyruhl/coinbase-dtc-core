@@ -186,6 +186,7 @@ namespace coinbase_dtc_core
 
                 // Message processing
                 void process_client_message(std::shared_ptr<ClientConnection> client, const std::vector<uint8_t> &data);
+                void process_dtc_message(std::shared_ptr<ClientConnection> client, std::unique_ptr<open_dtc_server::core::dtc::DTCMessage> message, open_dtc_server::core::dtc::Protocol &protocol);
                 void handle_logon_request(std::shared_ptr<ClientConnection> client, const std::vector<uint8_t> &data);
                 void handle_market_data_request(std::shared_ptr<ClientConnection> client, const std::vector<uint8_t> &data);
                 void handle_heartbeat(std::shared_ptr<ClientConnection> client, const std::vector<uint8_t> &data);
@@ -223,6 +224,7 @@ namespace coinbase_dtc_core
 
                 // Exchange management
                 std::unique_ptr<open_dtc_server::exchanges::base::MultiExchangeFeed> multi_feed_;
+                std::unordered_map<std::string, std::unique_ptr<open_dtc_server::exchanges::base::ExchangeFeedBase>> exchange_feeds_;
                 std::mutex exchanges_mutex_;
 
                 // Client management

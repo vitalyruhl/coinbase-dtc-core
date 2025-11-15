@@ -42,7 +42,7 @@
  * - Factory pattern for exchange implementations
  * - Strategy pattern for different trading algorithms
  * - Observer pattern for market data updates
- * - Namespace organization: coinbase_dtc_core::exchanges::coinbase
+ * - Namespace organization: open_dtc_server is now the main namespace!
  * 
  * Testing Approach:
  * - Unit tests for core components
