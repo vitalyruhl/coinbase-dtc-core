@@ -66,7 +66,6 @@ add_library(dtc_test STATIC
 # Create server library (core)
 add_library(dtc_server STATIC
     src/core/server/server.cpp
-    src/core/server/symbol_manager.cpp
 )
 
 # Exchange Libraries
@@ -76,10 +75,10 @@ add_library(exchange_base STATIC
     src/exchanges/base/exchange_feed.cpp
 )
 
-# TEMPORARY: Disabled due to method signature issues
-# add_library(exchange_factory STATIC
-#     src/exchanges/factory/exchange_factory.cpp
-# )
+# Create exchange factory library
+add_library(exchange_factory STATIC
+    src/exchanges/factory/exchange_factory.cpp
+)
 
 # Create Coinbase feed library
 add_library(coinbase_feed STATIC
@@ -124,10 +123,10 @@ target_include_directories(exchange_base PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-# target_include_directories(exchange_factory PUBLIC
-#     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-#     $<INSTALL_INTERFACE:include>
-# )
+target_include_directories(exchange_factory PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
 
 target_include_directories(coinbase_feed PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -141,18 +140,18 @@ target_include_directories(binance_feed PUBLIC
 
 # Link exchange dependencies
 target_link_libraries(exchange_base PRIVATE dtc_util)
-# target_link_libraries(exchange_factory PRIVATE
-#     exchange_base 
-#     coinbase_feed 
-#     binance_feed 
-#     dtc_util
-# )
+target_link_libraries(exchange_factory PRIVATE
+    exchange_base 
+    coinbase_feed 
+    binance_feed 
+    dtc_util
+)
 target_link_libraries(coinbase_feed PRIVATE exchange_base dtc_util)
 target_link_libraries(binance_feed PRIVATE exchange_base dtc_util)
 target_link_libraries(dtc_auth PRIVATE dtc_util)
 target_link_libraries(dtc_test PRIVATE dtc_util)
 target_link_libraries(dtc_server PRIVATE
-    exchange_factory 
+    exchange_factory
     exchange_base 
     dtc_protocol 
     dtc_auth
@@ -171,7 +170,7 @@ target_link_libraries(coinbase_dtc_server PRIVATE
     dtc_auth
     dtc_test
     dtc_server
-    # exchange_factory  # TEMPORARY: Disabled
+    exchange_factory
     exchange_base
     coinbase_feed
     binance_feed

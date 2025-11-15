@@ -17,7 +17,7 @@
  *   1. Historical chart data retrieval (all standard timeframes)
  *   2. Local data caching/storage for performance
  *   3. Real-time DOM (Depth of Market) data streaming
- *   4. Live trading capabilities (paid version)
+ *   4. Live trading capabilities
  * - DEPLOYMENT TARGET: Docker containers with credential injection
  * - ARCHITECTURE: Modular design for easy exchange integration later
  * - SCALABILITY: Quick addition of other exchanges after Coinbase is stable
