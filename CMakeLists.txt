@@ -66,7 +66,6 @@ add_library(dtc_test STATIC
 # Create server library (core)
 add_library(dtc_server STATIC
     src/core/server/server.cpp
-    src/core/server/symbol_manager.cpp
 )
 
 # Exchange Libraries
@@ -76,14 +75,15 @@ add_library(exchange_base STATIC
     src/exchanges/base/exchange_feed.cpp
 )
 
-# TEMPORARY: Disabled due to method signature issues
-# add_library(exchange_factory STATIC
-#     src/exchanges/factory/exchange_factory.cpp
-# )
+# Create exchange factory library
+add_library(exchange_factory STATIC
+    src/exchanges/factory/exchange_factory.cpp
+)
 
 # Create Coinbase feed library
 add_library(coinbase_feed STATIC
     src/exchanges/coinbase/coinbase_feed.cpp
+    src/exchanges/coinbase/websocket_client.cpp  # Re-enabled with working implementation
 )
 
 # Create Binance feed library
@@ -123,10 +123,10 @@ target_include_directories(exchange_base PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-# target_include_directories(exchange_factory PUBLIC
-#     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-#     $<INSTALL_INTERFACE:include>
-# )
+target_include_directories(exchange_factory PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
 
 target_include_directories(coinbase_feed PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -140,18 +140,18 @@ target_include_directories(binance_feed PUBLIC
 
 # Link exchange dependencies
 target_link_libraries(exchange_base PRIVATE dtc_util)
-# target_link_libraries(exchange_factory PRIVATE
-#     exchange_base 
-#     coinbase_feed 
-#     binance_feed 
-#     dtc_util
-# )
+target_link_libraries(exchange_factory PRIVATE
+    exchange_base 
+    coinbase_feed 
+    binance_feed 
+    dtc_util
+)
 target_link_libraries(coinbase_feed PRIVATE exchange_base dtc_util)
 target_link_libraries(binance_feed PRIVATE exchange_base dtc_util)
 target_link_libraries(dtc_auth PRIVATE dtc_util)
 target_link_libraries(dtc_test PRIVATE dtc_util)
 target_link_libraries(dtc_server PRIVATE
-    exchange_factory 
+    exchange_factory
     exchange_base 
     dtc_protocol 
     dtc_auth
@@ -170,7 +170,7 @@ target_link_libraries(coinbase_dtc_server PRIVATE
     dtc_auth
     dtc_test
     dtc_server
-    # exchange_factory  # TEMPORARY: Disabled
+    # exchange_factory  # TEMPORARY: Disabled for Docker build
     exchange_base
     coinbase_feed
     binance_feed
@@ -469,4 +469,37 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/debug_sizes.cpp")
     add_executable(debug_sizes debug_sizes.cpp)
     target_link_libraries(debug_sizes dtc_protocol dtc_util)
     target_include_directories(debug_sizes PRIVATE include)
+endif()
+
+# WebSocket test executable
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test_websocket_connection.cpp")
+    add_executable(test_websocket_connection test_websocket_connection.cpp)
+    target_link_libraries(test_websocket_connection coinbase_feed exchange_base dtc_util)
+    target_include_directories(test_websocket_connection PRIVATE include)
+    
+    if(WIN32)
+        target_link_libraries(test_websocket_connection ws2_32)
+    endif()
+endif()
+
+# SSL WebSocket test executable
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ssl_websocket.cpp")
+    add_executable(test_ssl_websocket tests/test_ssl_websocket.cpp)
+    target_link_libraries(test_ssl_websocket coinbase_feed exchange_base dtc_util)
+    target_include_directories(test_ssl_websocket PRIVATE include)
+    
+    if(WIN32)
+        target_link_libraries(test_ssl_websocket ws2_32 crypt32 secur32)
+    endif()
+endif()
+
+# Basic WebSocket test executable
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_websocket_basic.cpp")
+    add_executable(test_websocket_basic tests/test_websocket_basic.cpp)
+    target_link_libraries(test_websocket_basic coinbase_feed exchange_base dtc_util)
+    target_include_directories(test_websocket_basic PRIVATE include)
+    
+    if(WIN32)
+        target_link_libraries(test_websocket_basic ws2_32)
+    endif()
 endif()
