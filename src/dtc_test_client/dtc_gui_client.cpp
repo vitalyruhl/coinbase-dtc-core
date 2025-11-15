@@ -353,7 +353,7 @@ void DTCTestClientGUI::ConnectToServer()
     }
 
     m_isConnected = true;
-    UpdateConsole("✅ Connected successfully!");
+    UpdateConsole("Connected successfully!");
     UpdateStatus("Connected to " + m_serverHost + ":" + std::to_string(m_serverPort));
 
     // Start timer for processing incoming data (check every 100ms)
@@ -408,7 +408,7 @@ void DTCTestClientGUI::GetAccountInfo()
         return;
     }
 
-    UpdateConsole("📊 Sending DTC LogonRequest to server...");
+    UpdateConsole("Sending DTC LogonRequest to server...");
 
     try
     {
@@ -428,17 +428,17 @@ void DTCTestClientGUI::GetAccountInfo()
         // Send to server
         if (SendDTCMessage(message_data))
         {
-            UpdateConsole("✅ LogonRequest sent successfully");
-            UpdateConsole("⏳ Waiting for server response...");
+            UpdateConsole("LogonRequest sent successfully");
+            UpdateConsole("Waiting for server response...");
         }
         else
         {
-            UpdateConsole("❌ Failed to send LogonRequest");
+            UpdateConsole("Failed to send LogonRequest");
         }
     }
     catch (const std::exception &e)
     {
-        UpdateConsole("❌ Error creating LogonRequest: " + std::string(e.what()));
+        UpdateConsole("Error creating LogonRequest: " + std::string(e.what()));
     }
 }
 
@@ -450,7 +450,7 @@ void DTCTestClientGUI::LoadAvailableSymbols()
         return;
     }
 
-    UpdateConsole("📋 Sending DTC SecurityDefinitionRequest to server...");
+    UpdateConsole("Sending DTC SecurityDefinitionRequest to server...");
 
     try
     {
@@ -466,17 +466,17 @@ void DTCTestClientGUI::LoadAvailableSymbols()
         // Send to server
         if (SendDTCMessage(message_data))
         {
-            UpdateConsole("✅ SecurityDefinitionRequest sent successfully");
-            UpdateConsole("⏳ Waiting for symbol definitions...");
+            UpdateConsole("SecurityDefinitionRequest sent successfully");
+            UpdateConsole("Waiting for symbol definitions...");
         }
         else
         {
-            UpdateConsole("❌ Failed to send SecurityDefinitionRequest");
+            UpdateConsole("Failed to send SecurityDefinitionRequest");
         }
     }
     catch (const std::exception &e)
     {
-        UpdateConsole("❌ Error creating SecurityDefinitionRequest: " + std::string(e.what()));
+        UpdateConsole("Error creating SecurityDefinitionRequest: " + std::string(e.what()));
     }
 
     // Clear current symbols
@@ -490,11 +490,11 @@ void DTCTestClientGUI::LoadAvailableSymbols()
     for (const auto &symbol : standardSymbols)
     {
         SendMessageA(m_comboSymbols, CB_ADDSTRING, 0, (LPARAM)symbol.c_str());
-        UpdateConsole("  📈 Available: " + symbol + " (would come from server)");
+        UpdateConsole("  Available: " + symbol + " (would come from server)");
     }
 
     SendMessage(m_comboSymbols, CB_SETCURSEL, 0, 0);
-    UpdateConsole("📋 Next: Server needs to implement symbol listing from Coinbase API");
+    UpdateConsole("Next: Server needs to implement symbol listing from Coinbase API");
 }
 
 void DTCTestClientGUI::GetSymbolInfo()
@@ -512,7 +512,7 @@ void DTCTestClientGUI::GetSymbolInfo()
         return;
     }
 
-    UpdateConsole("ℹ️ Getting symbol info for: " + symbol);
+    UpdateConsole("Getting symbol info for: " + symbol);
 
     // TODO: Implement actual DTC symbol info request
     UpdateConsole("Symbol Info for " + symbol + ":");
@@ -540,7 +540,7 @@ void DTCTestClientGUI::GetDOMData()
         return;
     }
 
-    UpdateConsole("📈 Getting DOM (Depth of Market) data for: " + symbol);
+    UpdateConsole("Getting DOM (Depth of Market) data for: " + symbol);
 
     // TODO: Implement actual DTC DOM request
     UpdateConsole("DOM Data for " + symbol + ":");
@@ -569,10 +569,10 @@ void DTCTestClientGUI::SubscribeToSymbol()
         return;
     }
 
-    UpdateConsole("🔔 Subscribing to real-time data for: " + symbol);
+    UpdateConsole("Subscribing to real-time data for: " + symbol);
 
     // TODO: Implement actual DTC subscription request
-    UpdateConsole("✅ Subscribed to " + symbol);
+    UpdateConsole("Subscribed to " + symbol);
     UpdateConsole("You will now receive real-time updates for this symbol");
 }
 
@@ -594,7 +594,7 @@ void DTCTestClientGUI::UnsubscribeFromSymbol()
     UpdateConsole("🔕 Unsubscribing from: " + symbol);
 
     // TODO: Implement actual DTC unsubscribe request
-    UpdateConsole("✅ Unsubscribed from " + symbol);
+    UpdateConsole("Unsubscribed from " + symbol);
 }
 
 void DTCTestClientGUI::UpdateConsole(const std::string &message)
@@ -705,7 +705,7 @@ void DTCTestClientGUI::ProcessIncomingData()
             int error = WSAGetLastError();
             if (error != WSAEWOULDBLOCK)
             {
-                UpdateConsole("❌ Socket error: " + std::to_string(error));
+                UpdateConsole("Socket error: " + std::to_string(error));
                 DisconnectFromServer();
             }
         }
@@ -724,7 +724,7 @@ void DTCTestClientGUI::ProcessDTCMessages()
         uint16_t message_size = *reinterpret_cast<const uint16_t *>(m_incomingBuffer.data());
         if (message_size < 4 || message_size > 65535)
         {
-            UpdateConsole("❌ Invalid DTC message size: " + std::to_string(message_size));
+            UpdateConsole("Invalid DTC message size: " + std::to_string(message_size));
             m_incomingBuffer.clear(); // Clear corrupted buffer
             break;
         }
@@ -746,7 +746,7 @@ void DTCTestClientGUI::ProcessDTCMessages()
         }
         catch (const std::exception &e)
         {
-            UpdateConsole("❌ Error parsing DTC message: " + std::string(e.what()));
+            UpdateConsole("Error parsing DTC message: " + std::string(e.what()));
         }
 
         // Remove processed message from buffer
@@ -766,24 +766,24 @@ void DTCTestClientGUI::HandleDTCResponse(std::unique_ptr<open_dtc_server::core::
         auto *logon_resp = static_cast<open_dtc_server::core::dtc::LogonResponse *>(message.get());
 
         // Debug logging
-        UpdateConsole("🔍 Debug - LogonResponse received:");
+        UpdateConsole("Debug - LogonResponse received:");
         UpdateConsole("  Result: " + std::to_string(logon_resp->result));
         UpdateConsole("  Result text: '" + logon_resp->result_text + "'");
         UpdateConsole("  Server name: '" + logon_resp->server_name + "'");
 
         if (logon_resp->result == 1) // Success
         {
-            UpdateConsole("✅ DTC Login successful! (REAL protocol communication)");
-            UpdateConsole("📋 Server: " + logon_resp->server_name + " (REAL server instance)");
-            UpdateConsole("📊 Trading supported: " + std::string(logon_resp->trading_is_supported ? "Yes" : "No") + " [SERVER CONFIG]");
-            UpdateConsole("📈 Market data supported: " + std::string(logon_resp->market_depth_is_supported ? "Yes" : "No") + " [SERVER CONFIG]");
-            UpdateConsole("🔍 Security definitions supported: " + std::string(logon_resp->security_definitions_supported ? "Yes" : "No") + " [SERVER CONFIG]");
-            UpdateConsole("⚠️  Exchange connection: FAILED (Coinbase SSL/JWT not implemented yet)");
-            UpdateConsole("🎯 Status: DTC protocol ✅ | Coinbase connection ❌");
+            UpdateConsole("DTC Login successful! (REAL protocol communication)");
+            UpdateConsole("Server: " + logon_resp->server_name + " (REAL server instance)");
+            UpdateConsole("Trading supported: " + std::string(logon_resp->trading_is_supported ? "Yes" : "No") + " [SERVER CONFIG]");
+            UpdateConsole("Market data supported: " + std::string(logon_resp->market_depth_is_supported ? "Yes" : "No") + " [SERVER CONFIG]");
+            UpdateConsole("Security definitions supported: " + std::string(logon_resp->security_definitions_supported ? "Yes" : "No") + " [SERVER CONFIG]");
+            UpdateConsole("Exchange connection: Will be verified via live data streaming");
+            UpdateConsole("Status: DTC protocol OK | Ready for market data requests");
         }
         else
         {
-            UpdateConsole("❌ Login failed: " + logon_resp->result_text);
+            UpdateConsole("Login failed: " + logon_resp->result_text);
         }
         break;
     }
@@ -791,7 +791,7 @@ void DTCTestClientGUI::HandleDTCResponse(std::unique_ptr<open_dtc_server::core::
     case open_dtc_server::core::dtc::MessageType::SECURITY_DEFINITION_RESPONSE:
     {
         auto *symbol_resp = static_cast<open_dtc_server::core::dtc::SecurityDefinitionResponse *>(message.get());
-        UpdateConsole("📋 Symbol: " + symbol_resp->symbol + " (" + symbol_resp->exchange + ") [CONFIGURED - not live data yet]");
+        UpdateConsole("Symbol: " + symbol_resp->symbol + " (" + symbol_resp->exchange + ") [CONFIGURED - not live data yet]");
         UpdateConsole("   Description: " + symbol_resp->description + " [SERVER CONFIG]");
         UpdateConsole("   Min tick: " + std::to_string(symbol_resp->min_price_increment) + " [DEFAULT VALUE]");
         UpdateConsole("⚠️  Note: Symbol list is server-configured, not from live Coinbase API");

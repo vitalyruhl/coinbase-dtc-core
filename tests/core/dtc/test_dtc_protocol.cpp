@@ -9,15 +9,15 @@ int main()
     using namespace open_dtc_server::core::dtc;
     using namespace open_dtc_server::core;
 
-    open_dtc_server::util::log("[TEST] Testing DTC Protocol Implementation...");
+    open_dtc_server::util::simple_log("[TEST] Testing DTC Protocol Implementation...");
 
     // Test 1: Protocol initialization
     dtc::Protocol protocol;
-    open_dtc_server::util::log("[OK] Protocol version: " + protocol.version());
-    open_dtc_server::util::log("[OK] Protocol connected: " + std::string(protocol.is_connected() ? "Yes" : "No"));
+    open_dtc_server::util::simple_log("[OK] Protocol version: " + protocol.version());
+    open_dtc_server::util::simple_log("[OK] Protocol connected: " + std::string(protocol.is_connected() ? "Yes" : "No"));
 
     // Test 2: Create and serialize Logon Request
-    open_dtc_server::util::log("\n[TEST] Testing Logon Request...");
+    open_dtc_server::util::simple_log("\n[TEST] Testing Logon Request...");
     dtc::LogonRequest logon_req;
 
     // Debug size calculations

@@ -17,7 +17,7 @@ namespace open_dtc_server
             // Multi-Exchange Feed Implementation
             MultiExchangeFeed::MultiExchangeFeed()
             {
-                util::log("[MULTI] Multi-exchange feed initialized");
+                util::simple_log("[MULTI] Multi-exchange feed initialized");
             }
 
             MultiExchangeFeed::~MultiExchangeFeed()
@@ -30,7 +30,7 @@ namespace open_dtc_server
                         feed->disconnect();
                     }
                 }
-                util::log("[MULTI] Multi-exchange feed destroyed");
+                util::simple_log("[MULTI] Multi-exchange feed destroyed");
             }
 
             bool MultiExchangeFeed::add_exchange(const ExchangeConfig &config)
@@ -39,7 +39,7 @@ namespace open_dtc_server
 
                 if (exchanges_.find(config.name) != exchanges_.end())
                 {
-                    util::log("[MULTI] Exchange " + config.name + " already exists");
+                    util::simple_log("[MULTI] Exchange " + config.name + " already exists");
                     return false;
                 }
 
@@ -56,12 +56,12 @@ namespace open_dtc_server
 
                     exchanges_[config.name] = std::move(feed);
 
-                    util::log("[MULTI] Added exchange: " + config.name);
+                    util::simple_log("[MULTI] Added exchange: " + config.name);
                     return true;
                 }
                 catch (const std::exception &e)
                 {
-                    util::log("[MULTI] Failed to add exchange " + config.name + ": " + e.what());
+                    util::simple_log("[MULTI] Failed to add exchange " + config.name + ": " + e.what());
                     return false;
                 }
             }
@@ -82,7 +82,7 @@ namespace open_dtc_server
                 }
 
                 exchanges_.erase(it);
-                util::log("[MULTI] Removed exchange: " + exchange_name);
+                util::simple_log("[MULTI] Removed exchange: " + exchange_name);
                 return true;
             }
 
@@ -117,7 +117,7 @@ namespace open_dtc_server
                             if (feed->subscribe_trades(symbol) && feed->subscribe_level2(symbol))
                             {
                                 success = true;
-                                util::log("[MULTI] Subscribed " + symbol + " on " + name);
+                                util::simple_log("[MULTI] Subscribed " + symbol + " on " + name);
                             }
                         }
                     }
@@ -131,7 +131,7 @@ namespace open_dtc_server
                         success = it->second->subscribe_trades(symbol) && it->second->subscribe_level2(symbol);
                         if (success)
                         {
-                            util::log("[MULTI] Subscribed " + symbol + " on " + exchange);
+                            util::simple_log("[MULTI] Subscribed " + symbol + " on " + exchange);
                         }
                     }
                 }
@@ -155,7 +155,7 @@ namespace open_dtc_server
                             if (feed->unsubscribe(symbol))
                             {
                                 success = true;
-                                util::log("[MULTI] Unsubscribed " + symbol + " from " + name);
+                                util::simple_log("[MULTI] Unsubscribed " + symbol + " from " + name);
                             }
                         }
                     }
@@ -169,7 +169,7 @@ namespace open_dtc_server
                         success = it->second->unsubscribe(symbol);
                         if (success)
                         {
-                            util::log("[MULTI] Unsubscribed " + symbol + " from " + exchange);
+                            util::simple_log("[MULTI] Unsubscribed " + symbol + " from " + exchange);
                         }
                     }
                 }

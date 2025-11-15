@@ -29,34 +29,34 @@ namespace coinbase_dtc_core
             DTCServer::DTCServer(const ServerConfig &config)
                 : config_(config), server_running_(false)
             {
-                open_dtc_server::util::log("DTCServer initialized with config: " + config_.server_name);
+                std::cout << "DTCServer initialized with config: " + config_.server_name << std::endl;
             }
 
             DTCServer::~DTCServer()
             {
                 stop();
-                open_dtc_server::util::log("DTCServer destroyed");
+                std::cout << "DTCServer destroyed" << std::endl;
             }
 
             bool DTCServer::start()
             {
                 if (server_running_)
                 {
-                    open_dtc_server::util::log("Server is already running");
+                    std::cout << "Server is already running" << std::endl;
                     return false;
                 }
 
                 // Initialize sockets
                 if (!initialize_sockets())
                 {
-                    open_dtc_server::util::log("Failed to initialize sockets");
+                    std::cout << "Failed to initialize sockets" << std::endl;
                     return false;
                 }
 
                 // Create server socket
                 if (!create_server_socket())
                 {
-                    open_dtc_server::util::log("Failed to create server socket");
+                    std::cout << "Failed to create server socket" << std::endl;
                     cleanup_sockets();
                     return false;
                 }
@@ -69,7 +69,7 @@ namespace coinbase_dtc_core
                 // Start server thread
                 server_thread_ = std::thread(&DTCServer::server_thread_function, this);
 
-                open_dtc_server::util::log("DTC Server started successfully on port " + std::to_string(config_.port));
+                std::cout << "DTC Server started successfully on port " + std::to_string(config_.port) << std::endl;
                 return true;
             }
 
@@ -80,7 +80,7 @@ namespace coinbase_dtc_core
                     return;
                 }
 
-                open_dtc_server::util::log("Stopping DTC Server...");
+                std::cout << "Stopping DTC Server..." << std::endl;
 
                 // Signal shutdown
                 should_shutdown_ = true;
@@ -104,12 +104,12 @@ namespace coinbase_dtc_core
                 // Cleanup
                 cleanup_sockets();
 
-                open_dtc_server::util::log("DTC Server stopped");
+                std::cout << "DTC Server stopped" << std::endl;
             }
 
             bool DTCServer::add_exchange(const open_dtc_server::exchanges::base::ExchangeConfig &exchange_config)
             {
-                open_dtc_server::util::log("Adding exchange: " + exchange_config.name);
+                std::cout << "Adding exchange: " + exchange_config.name << std::endl;
 
                 try
                 {
@@ -117,7 +117,7 @@ namespace coinbase_dtc_core
                     auto feed = open_dtc_server::exchanges::factory::ExchangeFactory::create_feed(exchange_config);
                     if (!feed)
                     {
-                        open_dtc_server::util::log("Failed to create feed for exchange: " + exchange_config.name);
+                        std::cout << "Failed to create feed for exchange: " + exchange_config.name << std::endl;
                         return false;
                     }
 
@@ -131,7 +131,7 @@ namespace coinbase_dtc_core
                     // Connect to the exchange
                     if (!feed->connect())
                     {
-                        open_dtc_server::util::log("Failed to connect to exchange: " + exchange_config.name);
+                        std::cout << "Failed to connect to exchange: " + exchange_config.name << std::endl;
                         return false;
                     }
 
@@ -142,19 +142,19 @@ namespace coinbase_dtc_core
                     std::lock_guard<std::mutex> lock(exchanges_mutex_);
                     exchange_feeds_[exchange_config.name] = std::move(feed);
 
-                    open_dtc_server::util::log("✅ Successfully added and connected exchange: " + exchange_config.name);
+                    std::cout << "[SUCCESS] Successfully added and connected exchange: " + exchange_config.name << std::endl;
                     return true;
                 }
                 catch (const std::exception &e)
                 {
-                    open_dtc_server::util::log("Exception adding exchange " + exchange_config.name + ": " + e.what());
+                    std::cout << "Exception adding exchange " + exchange_config.name + ": " + e.what() << std::endl;
                     return false;
                 }
             }
 
             bool DTCServer::remove_exchange(const std::string &exchange_name)
             {
-                open_dtc_server::util::log("Removing exchange: " + exchange_name);
+                std::cout << "Removing exchange: " + exchange_name << std::endl;
                 // TODO: Implement exchange removal
                 return true;
             }
@@ -167,14 +167,14 @@ namespace coinbase_dtc_core
 
             bool DTCServer::subscribe_symbol(const std::string &symbol, const std::string &exchange)
             {
-                open_dtc_server::util::log("Subscribing to symbol: " + symbol + " on exchange: " + exchange);
+                std::cout << "Subscribing to symbol: " + symbol + " on exchange: " + exchange << std::endl;
                 // TODO: Implement symbol subscription
                 return true;
             }
 
             bool DTCServer::unsubscribe_symbol(const std::string &symbol, const std::string &exchange)
             {
-                open_dtc_server::util::log("Unsubscribing from symbol: " + symbol + " on exchange: " + exchange);
+                std::cout << "Unsubscribing from symbol: " + symbol + " on exchange: " + exchange << std::endl;
                 // TODO: Implement symbol unsubscription
                 return true;
             }
@@ -213,7 +213,7 @@ namespace coinbase_dtc_core
                 int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
                 if (result != 0)
                 {
-                    open_dtc_server::util::log("WSAStartup failed: " + std::to_string(result));
+                    std::cout << "WSAStartup failed: " + std::to_string(result) << std::endl;
                     return false;
                 }
                 winsock_initialized_ = true;
@@ -242,7 +242,7 @@ namespace coinbase_dtc_core
                 if (server_socket_ < 0)
 #endif
                 {
-                    open_dtc_server::util::log("Failed to create socket");
+                    std::cout << "Failed to create socket" << std::endl;
                     return false;
                 }
 
@@ -254,7 +254,7 @@ namespace coinbase_dtc_core
                 if (setsockopt(server_socket_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
 #endif
                 {
-                    open_dtc_server::util::log("Failed to set socket options");
+                    std::cout << "Failed to set socket options" << std::endl;
                     close_server_socket();
                     return false;
                 }
@@ -272,7 +272,7 @@ namespace coinbase_dtc_core
                 {
                     if (inet_pton(AF_INET, config_.bind_address.c_str(), &server_addr.sin_addr) != 1)
                     {
-                        open_dtc_server::util::log("Invalid bind address: " + config_.bind_address);
+                        std::cout << "Invalid bind address: " + config_.bind_address << std::endl;
                         close_server_socket();
                         return false;
                     }
@@ -284,7 +284,7 @@ namespace coinbase_dtc_core
                 if (bind(server_socket_, (sockaddr *)&server_addr, sizeof(server_addr)) < 0)
 #endif
                 {
-                    open_dtc_server::util::log("Failed to bind socket to port " + std::to_string(config_.port));
+                    std::cout << "Failed to bind socket to port " + std::to_string(config_.port) << std::endl;
                     close_server_socket();
                     return false;
                 }
@@ -296,12 +296,12 @@ namespace coinbase_dtc_core
                 if (listen(server_socket_, SOMAXCONN) < 0)
 #endif
                 {
-                    open_dtc_server::util::log("Failed to listen on socket");
+                    std::cout << "Failed to listen on socket" << std::endl;
                     close_server_socket();
                     return false;
                 }
 
-                open_dtc_server::util::log("Server socket listening on " + config_.bind_address + ":" + std::to_string(config_.port));
+                std::cout << "Server socket listening on " + config_.bind_address + ":" + std::to_string(config_.port) << std::endl;
                 return true;
             }
 
@@ -324,7 +324,7 @@ namespace coinbase_dtc_core
 
             void DTCServer::server_thread_function()
             {
-                open_dtc_server::util::log("Server thread started, accepting connections...");
+                std::cout << "Server thread started, accepting connections..." << std::endl;
 
                 while (server_running_ && !should_shutdown_)
                 {
@@ -337,7 +337,7 @@ namespace coinbase_dtc_core
                     {
                         if (server_running_)
                         {
-                            open_dtc_server::util::log("Accept failed: " + std::to_string(WSAGetLastError()));
+                            std::cout << "Accept failed: " + std::to_string(WSAGetLastError()) << std::endl;
                         }
                         break;
                     }
@@ -347,7 +347,7 @@ namespace coinbase_dtc_core
                     {
                         if (server_running_)
                         {
-                            open_dtc_server::util::log("Accept failed");
+                            std::cout << "Accept failed" << std::endl;
                         }
                         break;
                     }
@@ -361,7 +361,7 @@ namespace coinbase_dtc_core
                     char client_ip[INET_ADDRSTRLEN];
                     inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
 
-                    open_dtc_server::util::log("New client connection from " + std::string(client_ip) + " (ID: " + std::to_string(client_id) + ")");
+                    std::cout << "New client connection from " + std::string(client_ip) + " (ID: " + std::to_string(client_id) + ")" << std::endl;
 
                     // Add to client list
                     add_client(client);
@@ -371,12 +371,12 @@ namespace coinbase_dtc_core
                     client_thread.detach();
                 }
 
-                open_dtc_server::util::log("Server thread ending");
+                std::cout << "Server thread ending" << std::endl;
             }
 
             void DTCServer::client_handler_thread(std::shared_ptr<ClientConnection> client)
             {
-                open_dtc_server::util::log("Client handler thread started for client " + std::to_string(client->get_client_id()));
+                std::cout << "Client handler thread started for client " + std::to_string(client->get_client_id()) << std::endl;
 
                 // Create DTC protocol handler for this client
                 open_dtc_server::core::dtc::Protocol protocol_handler;
@@ -407,7 +407,7 @@ namespace coinbase_dtc_core
                         uint16_t message_size = *reinterpret_cast<const uint16_t *>(incoming_buffer.data());
                         if (message_size < 4 || message_size > 65535)
                         {
-                            open_dtc_server::util::log("Invalid DTC message size: " + std::to_string(message_size));
+                            std::cout << "Invalid DTC message size: " + std::to_string(message_size) << std::endl;
                             break;
                         }
 
@@ -428,7 +428,7 @@ namespace coinbase_dtc_core
                         }
                         catch (const std::exception &e)
                         {
-                            open_dtc_server::util::log("Error parsing DTC message: " + std::string(e.what()));
+                            std::cout << "Error parsing DTC message: " + std::string(e.what()) << std::endl;
                         }
 
                         // Remove processed message from buffer
@@ -438,7 +438,7 @@ namespace coinbase_dtc_core
 
                 // Client disconnected or server shutdown
                 remove_client(client);
-                open_dtc_server::util::log("Client " + std::to_string(client->get_client_id()) + " disconnected");
+                std::cout << "Client " + std::to_string(client->get_client_id()) + " disconnected" << std::endl;
             }
 
             void DTCServer::add_client(std::shared_ptr<ClientConnection> client)
@@ -459,50 +459,94 @@ namespace coinbase_dtc_core
 
             void DTCServer::on_trade_data(const open_dtc_server::exchanges::base::MarketTrade &trade)
             {
-                open_dtc_server::util::log("📈 Real trade data received: " + trade.symbol +
-                                           " Price=" + std::to_string(trade.price) +
-                                           " Volume=" + std::to_string(trade.volume));
-
-                // TODO: Convert to DTC Trade message and broadcast to all clients
-                // For now, just log that we received real data
-
-                // Create DTC Trade message (simplified)
-                std::vector<uint8_t> dtc_message;
-                // TODO: Use DTC protocol to create proper trade update message
-
-                // Broadcast to all connected clients
-                std::lock_guard<std::mutex> lock(clients_mutex_);
-                for (auto &client : clients_)
+                // Broadcast trade data to connected clients via DTC protocol
+                if (trade.symbol.empty() == false && trade.price > 0)
                 {
-                    if (client->is_connected())
+                    std::lock_guard<std::mutex> lock(clients_mutex_);
+
+                    // Create DTC protocol instance
+                    open_dtc_server::core::dtc::Protocol protocol;
+
+                    // Find clients subscribed to this symbol
+                    int broadcasts = 0;
+                    for (auto client : clients_)
                     {
-                        // TODO: Send actual DTC trade message
-                        // client->send_message(dtc_message);
+                        if (!client || !client->is_connected())
+                            continue;
+
+                        auto &subscriptions = client->get_session().subscribed_symbols;
+                        if (std::find(subscriptions.begin(), subscriptions.end(), trade.symbol) != subscriptions.end())
+                        {
+                            // Get symbol ID for this client
+                            auto symbol_id_it = client->get_session().symbol_to_id.find(trade.symbol);
+                            if (symbol_id_it != client->get_session().symbol_to_id.end())
+                            {
+                                // Create trade update message
+                                auto trade_update = protocol.create_trade_update(
+                                    symbol_id_it->second,                                         // symbol_id
+                                    trade.price,                                                  // price
+                                    trade.volume,                                                 // volume
+                                    open_dtc_server::core::dtc::Protocol::get_current_timestamp() // timestamp
+                                );
+
+                                auto message_data = protocol.create_message(*trade_update);
+                                client->send_message(message_data);
+                                broadcasts++;
+                            }
+                        }
+                    }
+
+                    if (broadcasts > 0)
+                    {
+                        std::cout << "📡 Trade broadcasted: " + trade.symbol + " = $" + std::to_string(trade.price) + " to " + std::to_string(broadcasts) + " clients" << std::endl;
                     }
                 }
             }
 
             void DTCServer::on_level2_data(const open_dtc_server::exchanges::base::MarketLevel2 &level2)
             {
-                open_dtc_server::util::log("📊 Real level2 data received: " + level2.symbol +
-                                           " Bid=" + std::to_string(level2.bid_price) +
-                                           " Ask=" + std::to_string(level2.ask_price));
-
-                // TODO: Convert to DTC Level2 message and broadcast to all clients
-                // For now, just log that we received real data
-
-                // Create DTC Level2 message (simplified)
-                std::vector<uint8_t> dtc_message;
-                // TODO: Use DTC protocol to create proper level2 update message
-
-                // Broadcast to all connected clients
-                std::lock_guard<std::mutex> lock(clients_mutex_);
-                for (auto &client : clients_)
+                // Broadcast level2 data to connected clients
+                if (level2.symbol.empty() == false && level2.bid_price > 0)
                 {
-                    if (client->is_connected())
+                    std::lock_guard<std::mutex> lock(clients_mutex_);
+
+                    // Create DTC protocol instance
+                    open_dtc_server::core::dtc::Protocol protocol;
+
+                    // Find clients subscribed to this symbol
+                    int broadcasts = 0;
+                    for (auto client : clients_)
                     {
-                        // TODO: Send actual DTC level2 message
-                        // client->send_message(dtc_message);
+                        if (!client || !client->is_connected())
+                            continue;
+
+                        auto &subscriptions = client->get_session().subscribed_symbols;
+                        if (std::find(subscriptions.begin(), subscriptions.end(), level2.symbol) != subscriptions.end())
+                        {
+                            // Get symbol ID for this client
+                            auto symbol_id_it = client->get_session().symbol_to_id.find(level2.symbol);
+                            if (symbol_id_it != client->get_session().symbol_to_id.end())
+                            {
+                                // Create bid/ask update message
+                                auto bid_ask_update = protocol.create_bid_ask_update(
+                                    symbol_id_it->second,                                         // symbol_id
+                                    level2.bid_price,                                             // bid_price
+                                    level2.bid_size,                                              // bid_quantity (fixed field name)
+                                    level2.ask_price,                                             // ask_price
+                                    level2.ask_size,                                              // ask_quantity (fixed field name)
+                                    open_dtc_server::core::dtc::Protocol::get_current_timestamp() // timestamp
+                                );
+
+                                auto message_data = protocol.create_message(*bid_ask_update);
+                                client->send_message(message_data);
+                                broadcasts++;
+                            }
+                        }
+                    }
+
+                    if (broadcasts > 0)
+                    {
+                        std::cout << "📊 Level2 broadcasted: " + level2.symbol + " Bid=$" + std::to_string(level2.bid_price) + " Ask=$" + std::to_string(level2.ask_price) + " to " + std::to_string(broadcasts) + " clients" << std::endl;
                     }
                 }
             }
@@ -511,20 +555,18 @@ namespace coinbase_dtc_core
             {
                 if (connected)
                 {
-                    open_dtc_server::util::log("✅ Exchange connected: " + exchange);
+                    std::cout << "Exchange connected: " + exchange << std::endl;
                 }
                 else
                 {
-                    open_dtc_server::util::log("❌ Exchange disconnected: " + exchange);
+                    std::cout << "Exchange disconnected: " + exchange << std::endl;
                 }
             }
 
             void DTCServer::on_exchange_error(const std::string &error, const std::string &exchange)
             {
-                open_dtc_server::util::log("🚨 Exchange error [" + exchange + "]: " + error);
-            }
-
-            // ========================================================================
+                std::cout << "Exchange error [" + exchange + "]: " + error << std::endl;
+            } // ========================================================================
             // DTC MESSAGE PROCESSING
             // ========================================================================
 
@@ -535,9 +577,7 @@ namespace coinbase_dtc_core
                 if (!message)
                     return;
 
-                open_dtc_server::util::log("📨 Processing DTC message type: " +
-                                           open_dtc_server::core::dtc::Protocol::message_type_to_string(message->get_type()) +
-                                           " from client " + std::to_string(client->get_client_id()));
+                // std::cout << "Processing DTC message type: " + open_dtc_server::core::dtc::Protocol::message_type_to_string(message->get_type()) + " from client " + std::to_string(client->get_client_id()) << std::endl;
 
                 switch (message->get_type())
                 {
@@ -546,8 +586,7 @@ namespace coinbase_dtc_core
                     // Cast to LogonRequest and handle
                     auto *logon_req = static_cast<open_dtc_server::core::dtc::LogonRequest *>(message.get());
 
-                    open_dtc_server::util::log("📝 LogonRequest from: " + logon_req->client_name +
-                                               " (user: " + logon_req->username + ")");
+                    std::cout << "LogonRequest from: " + logon_req->client_name + " (user: " + logon_req->username + ")" << std::endl;
 
                     // Create successful logon response
                     auto logon_response = protocol.create_logon_response(true, "Login successful");
@@ -561,7 +600,7 @@ namespace coinbase_dtc_core
                     auto response_data = protocol.create_message(*logon_response);
                     client->send_message(response_data);
 
-                    open_dtc_server::util::log("✅ LogonResponse sent to client " + std::to_string(client->get_client_id()));
+                    std::cout << "LogonResponse sent to client " + std::to_string(client->get_client_id()) << std::endl;
                     break;
                 }
 
@@ -569,13 +608,12 @@ namespace coinbase_dtc_core
                 {
                     auto *symbol_req = static_cast<open_dtc_server::core::dtc::SecurityDefinitionForSymbolRequest *>(message.get());
 
-                    open_dtc_server::util::log("📋 SecurityDefinitionRequest: " + symbol_req->symbol +
-                                               " on " + symbol_req->exchange);
+                    std::cout << "SecurityDefinitionRequest: " + symbol_req->symbol + " on " + symbol_req->exchange << std::endl;
 
                     // CONFIGURED: Send back hardcoded symbols (not live from Coinbase API yet)
                     std::vector<std::string> symbols = {"BTC-USD", "ETH-USD", "SOL-USD"};
 
-                    open_dtc_server::util::log("⚙️  Using server-configured symbols (not live Coinbase API data)");
+                    std::cout << "Using server-configured symbols (not live Coinbase API data)" << std::endl;
 
                     for (const auto &symbol : symbols)
                     {
@@ -586,7 +624,46 @@ namespace coinbase_dtc_core
                         client->send_message(response_data);
                     }
 
-                    open_dtc_server::util::log("✅ SecurityDefinition responses sent for " + std::to_string(symbols.size()) + " symbols [CONFIGURED DATA]");
+                    std::cout << "SecurityDefinition responses sent for " + std::to_string(symbols.size()) + " symbols [CONFIGURED DATA]" << std::endl;
+                    break;
+                }
+
+                case open_dtc_server::core::dtc::MessageType::MARKET_DATA_REQUEST:
+                {
+                    auto *market_req = static_cast<open_dtc_server::core::dtc::MarketDataRequest *>(message.get());
+
+                    std::cout << "MarketDataRequest: " + std::string(market_req->request_action == open_dtc_server::core::dtc::RequestAction::SUBSCRIBE ? "SUBSCRIBE" : "UNSUBSCRIBE") + " to " + market_req->symbol + " on " + market_req->exchange << std::endl;
+
+                    // Add symbol to client's subscription list
+                    if (market_req->request_action == open_dtc_server::core::dtc::RequestAction::SUBSCRIBE)
+                    {
+                        // Assign symbol ID if not provided
+                        if (market_req->symbol_id == 0)
+                        {
+                            market_req->symbol_id = client->get_session().next_symbol_id++;
+                        }
+
+                        // Store symbol mapping
+                        client->get_session().symbol_to_id[market_req->symbol] = market_req->symbol_id;
+                        client->get_session().id_to_symbol[market_req->symbol_id] = market_req->symbol;
+
+                        // Add to subscriptions
+                        auto &subscriptions = client->get_session().subscribed_symbols;
+                        if (std::find(subscriptions.begin(), subscriptions.end(), market_req->symbol) == subscriptions.end())
+                        {
+                            subscriptions.push_back(market_req->symbol);
+                        }
+
+                        std::cout << "✅ Client " + std::to_string(client->get_client_id()) + " subscribed to " + market_req->symbol + " (ID: " + std::to_string(market_req->symbol_id) + ")" << std::endl;
+                    }
+                    else if (market_req->request_action == open_dtc_server::core::dtc::RequestAction::UNSUBSCRIBE)
+                    {
+                        // Remove from subscriptions
+                        auto &subscriptions = client->get_session().subscribed_symbols;
+                        subscriptions.erase(std::remove(subscriptions.begin(), subscriptions.end(), market_req->symbol), subscriptions.end());
+
+                        std::cout << "❌ Client " + std::to_string(client->get_client_id()) + " unsubscribed from " + market_req->symbol << std::endl;
+                    }
                     break;
                 }
 
@@ -601,8 +678,7 @@ namespace coinbase_dtc_core
                 }
 
                 default:
-                    open_dtc_server::util::log("⚠️  Unhandled DTC message type: " +
-                                               std::to_string(static_cast<uint16_t>(message->get_type())));
+                    std::cout << "[WARNING] Unhandled DTC message type: " + std::to_string(static_cast<uint16_t>(message->get_type())) << std::endl;
                     break;
                 }
             }

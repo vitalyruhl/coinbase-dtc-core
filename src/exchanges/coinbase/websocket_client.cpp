@@ -51,7 +51,7 @@ namespace open_dtc_server
                 int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
                 if (result != 0)
                 {
-                    util::log("[ERROR] WSAStartup failed: " + std::to_string(result));
+                    util::simple_log("[ERROR] WSAStartup failed: " + std::to_string(result));
                 }
 
                 // SSL support disabled for basic testing
@@ -79,12 +79,12 @@ namespace open_dtc_server
                 host_ = host;
                 port_ = port;
 
-                util::log("[WS] Connecting to " + host + ":" + std::to_string(port));
+                util::simple_log("[WS] Connecting to " + host + ":" + std::to_string(port));
 
                 // Establish real WebSocket connection
                 if (!establish_websocket_connection())
                 {
-                    util::log("[ERROR] Failed to establish WebSocket connection");
+                    util::simple_log("[ERROR] Failed to establish WebSocket connection");
                     return false;
                 }
 
@@ -95,7 +95,7 @@ namespace open_dtc_server
                 worker_thread_ = std::thread(&WebSocketClient::worker_loop, this);
                 ping_thread_ = std::thread(&WebSocketClient::ping_loop, this);
 
-                util::log("[SUCCESS] WebSocket connected to " + host);
+                util::simple_log("[SUCCESS] WebSocket connected to " + host);
                 return true;
             }
 
@@ -106,7 +106,7 @@ namespace open_dtc_server
                     return;
                 }
 
-                util::log("[WS] Disconnecting...");
+                util::simple_log("[WS] Disconnecting...");
 
                 should_stop_.store(true);
                 connected_.store(false);
@@ -122,7 +122,7 @@ namespace open_dtc_server
                 }
 
                 cleanup_socket();
-                util::log("[WS] Disconnected");
+                util::simple_log("[WS] Disconnected");
             }
 
             bool WebSocketClient::subscribe_trades(const std::string &product_id)
@@ -133,7 +133,7 @@ namespace open_dtc_server
                 if (std::find(subscribed_symbols_.begin(), subscribed_symbols_.end(), product_id) == subscribed_symbols_.end())
                 {
                     subscribed_symbols_.push_back(product_id);
-                    util::log("[WS] Subscribed to trades: " + product_id);
+                    util::simple_log("[WS] Subscribed to trades: " + product_id);
 
                     // Send subscription message to WebSocket
                     if (connected_.load())
@@ -148,7 +148,7 @@ namespace open_dtc_server
             bool WebSocketClient::subscribe_level2(const std::string &product_id)
             {
                 std::lock_guard<std::mutex> lock(subscriptions_mutex_);
-                util::log("[WS] Subscribed to level2: " + product_id);
+                util::simple_log("[WS] Subscribed to level2: " + product_id);
 
                 // Send subscription message to WebSocket
                 if (connected_.load())
@@ -166,7 +166,7 @@ namespace open_dtc_server
                 if (it != subscribed_symbols_.end())
                 {
                     subscribed_symbols_.erase(it);
-                    util::log("[WS] Unsubscribed from: " + product_id);
+                    util::simple_log("[WS] Unsubscribed from: " + product_id);
                 }
                 return true;
             }
@@ -199,7 +199,7 @@ namespace open_dtc_server
 
             void WebSocketClient::worker_loop()
             {
-                util::log("[WS] Worker thread started");
+                util::simple_log("[WS] Worker thread started");
 
                 while (!should_stop_.load())
                 {
@@ -227,12 +227,12 @@ namespace open_dtc_server
                     }
                 }
 
-                util::log("[WS] Worker thread stopped");
+                util::simple_log("[WS] Worker thread stopped");
             }
 
             void WebSocketClient::ping_loop()
             {
-                util::log("[WS] Ping thread started");
+                util::simple_log("[WS] Ping thread started");
 
                 while (!should_stop_.load())
                 {
@@ -245,7 +245,7 @@ namespace open_dtc_server
                     std::this_thread::sleep_for(std::chrono::seconds(30));
                 }
 
-                util::log("[WS] Ping thread stopped");
+                util::simple_log("[WS] Ping thread stopped");
             }
 
             void WebSocketClient::cleanup_socket()
@@ -265,13 +265,13 @@ namespace open_dtc_server
             // WebSocket protocol helpers (real implementation)
             bool WebSocketClient::establish_websocket_connection()
             {
-                util::log("[INFO] Note: SSL/TLS support not yet implemented - testing basic TCP connection");
+                util::simple_log("[INFO] Note: SSL/TLS support not yet implemented - testing basic TCP connection");
 
                 // Create TCP socket
                 socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
                 if (socket_ == -1)
                 {
-                    util::log("[ERROR] Failed to create socket");
+                    util::simple_log("[ERROR] Failed to create socket");
                     return false;
                 }
 
@@ -279,7 +279,7 @@ namespace open_dtc_server
                 struct hostent *host_entry = gethostbyname(host_.c_str());
                 if (!host_entry)
                 {
-                    util::log("[ERROR] Failed to resolve hostname: " + host_);
+                    util::simple_log("[ERROR] Failed to resolve hostname: " + host_);
                     cleanup_socket();
                     return false;
                 }
@@ -294,22 +294,22 @@ namespace open_dtc_server
                 // Connect to server
                 if (::connect(socket_, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
                 {
-                    util::log("[ERROR] Failed to connect to " + host_ + ":" + std::to_string(port_));
+                    util::simple_log("[ERROR] Failed to connect to " + host_ + ":" + std::to_string(port_));
                     cleanup_socket();
                     return false;
                 }
 
-                util::log("[INFO] TCP connection established to " + host_ + ":" + std::to_string(port_));
+                util::simple_log("[INFO] TCP connection established to " + host_ + ":" + std::to_string(port_));
 
                 // Perform WebSocket handshake (will fail without SSL, but tests protocol)
                 if (!perform_websocket_handshake())
                 {
-                    util::log("[INFO] WebSocket handshake failed (expected without SSL/TLS)");
+                    util::simple_log("[INFO] WebSocket handshake failed (expected without SSL/TLS)");
                     cleanup_socket();
                     return false;
                 }
 
-                util::log("[SUCCESS] WebSocket connection established");
+                util::simple_log("[SUCCESS] WebSocket connection established");
                 return true;
             }
 
@@ -334,7 +334,7 @@ namespace open_dtc_server
                 ssize_t sent = send(socket_, handshake.c_str(), handshake.length(), 0);
                 if (sent != (ssize_t)handshake.length())
                 {
-                    util::log("[ERROR] Failed to send WebSocket handshake via TCP");
+                    util::simple_log("[ERROR] Failed to send WebSocket handshake via TCP");
                     return false;
                 }
 
@@ -343,7 +343,7 @@ namespace open_dtc_server
                 ssize_t received = recv(socket_, buffer, sizeof(buffer) - 1, 0);
                 if (received <= 0)
                 {
-                    util::log("[ERROR] Failed to receive WebSocket handshake response via TCP");
+                    util::simple_log("[ERROR] Failed to receive WebSocket handshake response via TCP");
                     return false;
                 }
 
@@ -353,11 +353,11 @@ namespace open_dtc_server
                 // Basic validation of handshake response
                 if (response.find("HTTP/1.1 101") == std::string::npos)
                 {
-                    util::log("[ERROR] Invalid WebSocket handshake response: " + response.substr(0, 100));
+                    util::simple_log("[ERROR] Invalid WebSocket handshake response: " + response.substr(0, 100));
                     return false;
                 }
 
-                util::log("[SUCCESS] WebSocket handshake completed");
+                util::simple_log("[SUCCESS] WebSocket handshake completed");
                 return true;
             }
 
@@ -375,7 +375,7 @@ namespace open_dtc_server
                 ssize_t sent = send(socket_, frame.c_str(), frame.length(), 0);
                 if (sent != (ssize_t)frame.length())
                 {
-                    util::log("[ERROR] Failed to send WebSocket frame via TCP");
+                    util::simple_log("[ERROR] Failed to send WebSocket frame via TCP");
                     return false;
                 }
 
@@ -478,7 +478,7 @@ namespace open_dtc_server
 
             void WebSocketClient::process_received_message(const std::string &message)
             {
-                util::log("[WS] Received message: " + message.substr(0, 100) + (message.length() > 100 ? "..." : ""));
+                util::simple_log("[WS] Received message: " + message.substr(0, 100) + (message.length() > 100 ? "..." : ""));
 
                 // Simple JSON parsing (looking for type field)
                 if (message.find("\"type\":\"match\"") != std::string::npos)
@@ -491,11 +491,11 @@ namespace open_dtc_server
                 }
                 else if (message.find("\"type\":\"subscriptions\"") != std::string::npos)
                 {
-                    util::log("[WS] Subscription confirmation received");
+                    util::simple_log("[WS] Subscription confirmation received");
                 }
                 else
                 {
-                    util::log("[WS] Unknown message type: " + message.substr(0, 50));
+                    util::simple_log("[WS] Unknown message type: " + message.substr(0, 50));
                 }
             }
 
@@ -571,7 +571,7 @@ namespace open_dtc_server
                 }
                 catch (const std::exception &e)
                 {
-                    util::log("[ERROR] Failed to parse trade message: " + std::string(e.what()));
+                    util::simple_log("[ERROR] Failed to parse trade message: " + std::string(e.what()));
                 }
             }
 
@@ -614,7 +614,7 @@ namespace open_dtc_server
                 }
                 catch (const std::exception &e)
                 {
-                    util::log("[ERROR] Failed to parse level2 message: " + std::string(e.what()));
+                    util::simple_log("[ERROR] Failed to parse level2 message: " + std::string(e.what()));
                 }
             }
 
@@ -722,13 +722,13 @@ namespace open_dtc_server
 #ifdef _WIN32
             bool WebSocketClient::initialize_ssl()
             {
-                util::log("[INFO] SSL support not yet implemented - using TCP fallback");
+                util::simple_log("[INFO] SSL support not yet implemented - using TCP fallback");
                 return false;
             }
 
             bool WebSocketClient::perform_ssl_handshake()
             {
-                util::log("[INFO] SSL handshake not yet implemented - using TCP fallback");
+                util::simple_log("[INFO] SSL handshake not yet implemented - using TCP fallback");
                 return false;
             }
 
@@ -752,13 +752,13 @@ namespace open_dtc_server
             // Placeholder implementations for non-Windows platforms
             bool WebSocketClient::initialize_ssl()
             {
-                util::log("[ERROR] SSL support not implemented for this platform");
+                util::simple_log("[ERROR] SSL support not implemented for this platform");
                 return false;
             }
 
             bool WebSocketClient::perform_ssl_handshake()
             {
-                util::log("[ERROR] SSL support not implemented for this platform");
+                util::simple_log("[ERROR] SSL support not implemented for this platform");
                 return false;
             }
 

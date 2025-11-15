@@ -14,7 +14,7 @@ namespace open_dtc_server
 
             std::unique_ptr<base::ExchangeFeedBase> ExchangeFactory::create_feed(const base::ExchangeConfig &config)
             {
-                open_dtc_server::util::log("[FACTORY] Creating feed for exchange: " + config.name);
+                open_dtc_server::util::simple_log("[FACTORY] Creating feed for exchange: " + config.name);
 
                 // Convert exchange name to lowercase for comparison
                 std::string exchange_name = config.name;

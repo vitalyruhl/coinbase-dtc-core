@@ -19,6 +19,10 @@
       "$comment": "For cryptographic operations (ES256 signing)"
     },
     {
+      "name": "zlib",
+      "$comment": "For WebSocket message compression/decompression"
+    },
+    {
       "name": "gtest",
       "$comment": "For advanced testing (optional)"
     }

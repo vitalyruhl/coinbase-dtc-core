@@ -47,7 +47,7 @@ int main()
         std::string exchange_name = feed.get_exchange_name();
         if (exchange_name == "coinbase")
         {
-            util::log("[SUCCESS] Exchange name correct: " + exchange_name);
+            util::simple_log("[SUCCESS] Exchange name correct: " + exchange_name);
         }
 
         // Test 3: Symbol normalization
@@ -59,7 +59,7 @@ int main()
         bool connected = feed.connect();
         if (connected)
         {
-            util::log("[SUCCESS] Connection successful");
+            util::simple_log("[SUCCESS] Connection successful");
 
             // Test 5: Set up callbacks
             TestCallbacks callbacks;
@@ -75,24 +75,24 @@ int main()
 
             if (sub_trades && sub_level2)
             {
-                util::log("[SUCCESS] Subscriptions successful");
+                util::simple_log("[SUCCESS] Subscriptions successful");
 
                 // Test 7: Wait for some data
-                util::log("[INFO] Waiting for market data (5 seconds)...");
+                util::simple_log("[INFO] Waiting for market data (5 seconds)...");
                 std::this_thread::sleep_for(std::chrono::seconds(5));
 
-                util::log("[INFO] Received " + std::to_string(callbacks.trade_count.load()) + " trades");
-                util::log("[INFO] Received " + std::to_string(callbacks.level2_count.load()) + " level2 updates");
+                util::simple_log("[INFO] Received " + std::to_string(callbacks.trade_count.load()) + " trades");
+                util::simple_log("[INFO] Received " + std::to_string(callbacks.level2_count.load()) + " level2 updates");
 
                 // Test 8: Check subscribed symbols
                 auto subscribed = feed.get_subscribed_symbols();
-                util::log("[INFO] Subscribed symbols: " + std::to_string(subscribed.size()));
+                util::simple_log("[INFO] Subscribed symbols: " + std::to_string(subscribed.size()));
 
                 // Test 9: Unsubscribe
                 bool unsub = feed.unsubscribe("BTC-USD");
                 if (unsub)
                 {
-                    util::log("[SUCCESS] Unsubscribe successful");
+                    util::simple_log("[SUCCESS] Unsubscribe successful");
                 }
             }
 
@@ -100,12 +100,12 @@ int main()
             feed.disconnect();
             if (!feed.is_connected())
             {
-                util::log("[SUCCESS] Disconnection successful");
+                util::simple_log("[SUCCESS] Disconnection successful");
             }
         }
         else
         {
-            util::log("[WARN] Connection failed - testing offline functionality");
+            util::simple_log("[WARN] Connection failed - testing offline functionality");
         }
 
         util::log("[SUCCESS] All Coinbase Feed tests completed successfully!");

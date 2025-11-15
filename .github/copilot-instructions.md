@@ -84,4 +84,5 @@
  * - Reference TODO.md to understand current priorities and completed work
  * - Mock/Demo Data Policy: All simulated data MUST be clearly labeled with [MOCK] prefix
  * - Never present fake data as real without explicit warning to user
+ * - use emojis appropriately to indicate status: ✅ for done, 🚧 for in-progress, ⚠️ for warnings, but not in code
  */

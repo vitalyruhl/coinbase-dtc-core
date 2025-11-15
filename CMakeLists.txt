@@ -15,6 +15,7 @@ if(WIN32)
     find_package(nlohmann_json QUIET)
     find_package(jwt-cpp CONFIG QUIET)
     find_package(OpenSSL QUIET)
+    find_package(ZLIB QUIET)
 else()
     # Linux approach - use pkg-config for libcurl
     if(PkgConfig_FOUND)
@@ -30,6 +31,7 @@ else()
     find_package(nlohmann_json QUIET)
     find_package(jwt-cpp CONFIG QUIET)
     find_package(OpenSSL QUIET)
+    find_package(ZLIB QUIET)
 endif()
 
 # Check if secrets file exists (for local development)
@@ -47,10 +49,8 @@ add_library(dtc_protocol STATIC
     src/core/dtc/protocol.cpp
 )
 
-# Create utility library (core)
-add_library(dtc_util STATIC
-    src/core/util/log.cpp
-)
+# Create utility library (core) - header-only now
+add_library(dtc_util INTERFACE)
 
 # Create auth/credentials library (core)
 add_library(dtc_auth STATIC
@@ -99,7 +99,7 @@ target_include_directories(dtc_protocol PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-target_include_directories(dtc_util PUBLIC
+target_include_directories(dtc_util INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
@@ -207,6 +207,12 @@ if(OpenSSL_FOUND)
     target_compile_definitions(coinbase_feed PUBLIC HAS_OPENSSL)
     target_compile_definitions(binance_feed PUBLIC HAS_OPENSSL)
     message(STATUS "✅ Using OpenSSL for cryptographic operations")
+endif()
+
+if(ZLIB_FOUND)
+    target_link_libraries(coinbase_feed PUBLIC ZLIB::ZLIB)
+    target_compile_definitions(coinbase_feed PUBLIC HAS_ZLIB)
+    message(STATUS "✅ Using ZLIB for compression/decompression")
 endif()
 
 # Windows-specific libraries

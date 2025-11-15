@@ -16,7 +16,7 @@ int main()
         // Test 1: Server creation
         {
             coinbase_dtc_core::core::server::DTCServer dtc_server(11000);
-            util::log("[TEST] ✅ Server created successfully");
+            util::simple_log("[TEST] ✅ Server created successfully");
         }
 
         util::log("[TEST] All Server tests completed successfully! ✅");

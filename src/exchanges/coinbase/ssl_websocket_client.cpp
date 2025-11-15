@@ -18,6 +18,7 @@
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/buffer.h>
+#include <zlib.h>
 
 namespace open_dtc_server
 {
@@ -25,6 +26,46 @@ namespace open_dtc_server
     {
         namespace coinbase
         {
+            // Helper function to decompress deflate data
+            std::string decompress_deflate(const std::vector<uint8_t> &compressed_data)
+            {
+                if (compressed_data.empty())
+                    return "";
+
+                z_stream stream = {};
+                stream.next_in = const_cast<Bytef *>(compressed_data.data());
+                stream.avail_in = static_cast<uInt>(compressed_data.size());
+
+                // Initialize deflate decompression
+                if (inflateInit2(&stream, -MAX_WBITS) != Z_OK)
+                {
+                    return "";
+                }
+
+                std::string result;
+                char buffer[4096];
+
+                do
+                {
+                    stream.next_out = reinterpret_cast<Bytef *>(buffer);
+                    stream.avail_out = sizeof(buffer);
+
+                    int ret = inflate(&stream, Z_NO_FLUSH);
+                    if (ret == Z_STREAM_ERROR || ret == Z_DATA_ERROR || ret == Z_MEM_ERROR)
+                    {
+                        inflateEnd(&stream);
+                        return "";
+                    }
+
+                    size_t bytes_produced = sizeof(buffer) - stream.avail_out;
+                    result.append(buffer, bytes_produced);
+
+                } while (stream.avail_out == 0);
+
+                inflateEnd(&stream);
+                return result;
+            }
+
             SSLWebSocketClient::SSLWebSocketClient()
                 : connected_(false), should_stop_(false), host_("ws-feed.exchange.coinbase.com"),
                   port_(443), ssl_ctx_(nullptr), ssl_(nullptr), bio_(nullptr),
@@ -37,13 +78,13 @@ namespace open_dtc_server
                 int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
                 if (result != 0)
                 {
-                    open_dtc_server::util::log("[ERROR] WSAStartup failed: " + std::to_string(result));
+                    open_dtc_server::util::simple_log("[ERROR] WSAStartup failed: " + std::to_string(result));
                 }
 #endif
 
                 if (!init_ssl())
                 {
-                    open_dtc_server::util::log("[ERROR] Failed to initialize SSL");
+                    open_dtc_server::util::simple_log("[ERROR] Failed to initialize SSL");
                 }
 
                 // Load JWT credentials
@@ -53,11 +94,11 @@ namespace open_dtc_server
 
                 if (!credentials_loaded_)
                 {
-                    open_dtc_server::util::log("[WARNING] JWT credentials not loaded - will use public data only");
+                    open_dtc_server::util::simple_log("[WARNING] JWT credentials not loaded - will use public data only");
                 }
                 else
                 {
-                    open_dtc_server::util::log("[SUCCESS] JWT credentials loaded successfully");
+                    open_dtc_server::util::simple_log("[SUCCESS] JWT credentials loaded successfully");
                 }
             }
 
@@ -85,7 +126,7 @@ namespace open_dtc_server
                 ssl_ctx_ = SSL_CTX_new(TLS_client_method());
                 if (!ssl_ctx_)
                 {
-                    open_dtc_server::util::log("[ERROR] Failed to create SSL context");
+                    open_dtc_server::util::simple_log("[ERROR] Failed to create SSL context");
                     return false;
                 }
 
@@ -97,7 +138,7 @@ namespace open_dtc_server
                 SSL_CTX_set_tlsext_use_srtp(ssl_ctx_, "SRTP_AES128_CM_SHA1_80");
 
                 ssl_initialized_ = true;
-                open_dtc_server::util::log("[SUCCESS] SSL context initialized");
+                open_dtc_server::util::simple_log("[SUCCESS] SSL context initialized");
                 return true;
             }
 
@@ -152,7 +193,7 @@ namespace open_dtc_server
                 }
                 catch (const std::exception &e)
                 {
-                    open_dtc_server::util::log("[WARNING] Failed to load API key from JSON: " + std::string(e.what()));
+                    open_dtc_server::util::simple_log("[WARNING] Failed to load API key from JSON: " + std::string(e.what()));
                 }
 
                 // Fallback to hardcoded value
@@ -180,7 +221,7 @@ namespace open_dtc_server
                 }
                 catch (const std::exception &e)
                 {
-                    open_dtc_server::util::log("[WARNING] Failed to load private key from JSON: " + std::string(e.what()));
+                    open_dtc_server::util::simple_log("[WARNING] Failed to load private key from JSON: " + std::string(e.what()));
                 }
 
                 // Fallback to hardcoded value
@@ -191,7 +232,7 @@ namespace open_dtc_server
             {
                 if (!credentials_loaded_)
                 {
-                    open_dtc_server::util::log("[ERROR] Cannot generate JWT - credentials not loaded");
+                    open_dtc_server::util::simple_log("[ERROR] Cannot generate JWT - credentials not loaded");
                     return "";
                 }
 
@@ -207,12 +248,12 @@ namespace open_dtc_server
                                      .set_not_before(std::chrono::system_clock::now() - std::chrono::seconds(10))
                                      .sign(jwt::algorithm::es256("", private_key_, "", ""));
 
-                    open_dtc_server::util::log("[SUCCESS] JWT token generated");
+                    open_dtc_server::util::simple_log("[SUCCESS] JWT token generated");
                     return token;
                 }
                 catch (const std::exception &e)
                 {
-                    open_dtc_server::util::log("[ERROR] Failed to generate JWT token: " + std::string(e.what()));
+                    open_dtc_server::util::simple_log("[ERROR] Failed to generate JWT token: " + std::string(e.what()));
                     return "";
                 }
             }
@@ -227,33 +268,33 @@ namespace open_dtc_server
                 host_ = host;
                 port_ = port;
 
-                open_dtc_server::util::log("[WS] Connecting to " + host + ":" + std::to_string(port) + " with SSL");
+                open_dtc_server::util::simple_log("[WS] Connecting to " + host + ":" + std::to_string(port) + " with SSL");
 
                 // Create TCP socket
                 if (!connect_tcp_socket())
                 {
-                    open_dtc_server::util::log("[ERROR] Failed to create TCP socket");
+                    open_dtc_server::util::simple_log("[ERROR] Failed to create TCP socket");
                     return false;
                 }
 
                 // Create SSL connection
                 if (!create_ssl_socket())
                 {
-                    open_dtc_server::util::log("[ERROR] Failed to create SSL socket");
+                    open_dtc_server::util::simple_log("[ERROR] Failed to create SSL socket");
                     return false;
                 }
 
                 // Perform SSL handshake
                 if (!perform_ssl_handshake())
                 {
-                    open_dtc_server::util::log("[ERROR] SSL handshake failed");
+                    open_dtc_server::util::simple_log("[ERROR] SSL handshake failed");
                     return false;
                 }
 
                 // Perform WebSocket handshake
                 if (!perform_websocket_handshake())
                 {
-                    open_dtc_server::util::log("[ERROR] WebSocket handshake failed");
+                    open_dtc_server::util::simple_log("[ERROR] WebSocket handshake failed");
                     return false;
                 }
 
@@ -264,7 +305,7 @@ namespace open_dtc_server
                 worker_thread_ = std::thread(&SSLWebSocketClient::worker_loop, this);
                 ping_thread_ = std::thread(&SSLWebSocketClient::ping_loop, this);
 
-                open_dtc_server::util::log("[SUCCESS] SSL WebSocket connected to " + host);
+                open_dtc_server::util::simple_log("[SUCCESS] SSL WebSocket connected to " + host);
 
                 if (connection_callback_)
                 {
@@ -284,7 +325,7 @@ namespace open_dtc_server
                 if (socket_fd_ < 0)
 #endif
                 {
-                    open_dtc_server::util::log("[ERROR] Failed to create socket");
+                    open_dtc_server::util::simple_log("[ERROR] Failed to create socket");
                     return false;
                 }
 
@@ -297,7 +338,7 @@ namespace open_dtc_server
                 int status = getaddrinfo(host_.c_str(), std::to_string(port_).c_str(), &hints, &result);
                 if (status != 0)
                 {
-                    open_dtc_server::util::log("[ERROR] Failed to resolve hostname: " + host_);
+                    open_dtc_server::util::simple_log("[ERROR] Failed to resolve hostname: " + host_);
 #ifdef _WIN32
                     closesocket(socket_fd_);
 #else
@@ -321,7 +362,7 @@ namespace open_dtc_server
 
                 if (!connected)
                 {
-                    open_dtc_server::util::log("[ERROR] Failed to connect to " + host_ + ":" + std::to_string(port_));
+                    open_dtc_server::util::simple_log("[ERROR] Failed to connect to " + host_ + ":" + std::to_string(port_));
 #ifdef _WIN32
                     closesocket(socket_fd_);
 #else
@@ -330,7 +371,7 @@ namespace open_dtc_server
                     return false;
                 }
 
-                open_dtc_server::util::log("[SUCCESS] TCP connection established");
+                open_dtc_server::util::simple_log("[SUCCESS] TCP connection established");
                 return true;
             }
 
@@ -340,21 +381,21 @@ namespace open_dtc_server
                 ssl_ = SSL_new(ssl_ctx_);
                 if (!ssl_)
                 {
-                    open_dtc_server::util::log("[ERROR] Failed to create SSL object");
+                    open_dtc_server::util::simple_log("[ERROR] Failed to create SSL object");
                     return false;
                 }
 
                 // Set socket file descriptor
                 if (SSL_set_fd(ssl_, socket_fd_) != 1)
                 {
-                    open_dtc_server::util::log("[ERROR] Failed to set SSL file descriptor");
+                    open_dtc_server::util::simple_log("[ERROR] Failed to set SSL file descriptor");
                     return false;
                 }
 
                 // Set hostname for SNI
                 if (SSL_set_tlsext_host_name(ssl_, host_.c_str()) != 1)
                 {
-                    open_dtc_server::util::log("[WARNING] Failed to set SNI hostname");
+                    open_dtc_server::util::simple_log("[WARNING] Failed to set SNI hostname");
                 }
 
                 return true;
@@ -368,25 +409,25 @@ namespace open_dtc_server
                     int error = SSL_get_error(ssl_, result);
                     char error_buf[256];
                     ERR_error_string_n(ERR_get_error(), error_buf, sizeof(error_buf));
-                    open_dtc_server::util::log("[ERROR] SSL connect failed: " + std::string(error_buf));
+                    open_dtc_server::util::simple_log("[ERROR] SSL connect failed: " + std::string(error_buf));
                     return false;
                 }
 
                 // Verify certificate (DEVELOPMENT: Skip verification)
                 if (!verify_certificate())
                 {
-                    open_dtc_server::util::log("[WARNING] Certificate verification failed - continuing anyway (DEVELOPMENT MODE)");
+                    open_dtc_server::util::simple_log("[WARNING] Certificate verification failed - continuing anyway (DEVELOPMENT MODE)");
                     // Continue anyway for development
                 }
 
-                open_dtc_server::util::log("[SUCCESS] SSL handshake completed");
+                open_dtc_server::util::simple_log("[SUCCESS] SSL handshake completed");
                 return true;
             }
 
             bool SSLWebSocketClient::verify_certificate()
             {
                 // DEVELOPMENT MODE: Skip certificate verification for Coinbase testing
-                open_dtc_server::util::log("[DEVELOPMENT] Skipping certificate verification");
+                open_dtc_server::util::simple_log("[DEVELOPMENT] Skipping certificate verification");
                 return true;
 
                 // PRODUCTION CODE (commented out):
@@ -394,21 +435,21 @@ namespace open_dtc_server
                 X509 *cert = SSL_get_peer_certificate(ssl_);
                 if (!cert)
                 {
-                    open_dtc_server::util::log("[ERROR] No peer certificate");
+                    open_dtc_server::util::simple_log("[ERROR] No peer certificate");
                     return false;
                 }
 
                 int verify_result = SSL_get_verify_result(ssl_);
                 if (verify_result != X509_V_OK)
                 {
-                    open_dtc_server::util::log("[WARNING] Certificate verification failed: " +
+                    open_dtc_server::util::simple_log("[WARNING] Certificate verification failed: " +
                                                std::string(X509_verify_cert_error_string(verify_result)));
                     X509_free(cert);
                     return false;
                 }
 
                 X509_free(cert);
-                open_dtc_server::util::log("[SUCCESS] Certificate verified");
+                open_dtc_server::util::simple_log("[SUCCESS] Certificate verified");
                 return true;
                 */
             }
@@ -455,6 +496,7 @@ namespace open_dtc_server
                 request << "Connection: Upgrade\r\n";
                 request << "Sec-WebSocket-Key: " << websocket_key << "\r\n";
                 request << "Sec-WebSocket-Version: 13\r\n";
+                request << "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n";
                 request << "User-Agent: CoinbaseDTC/1.0\r\n";
                 request << "\r\n";
 
@@ -463,7 +505,7 @@ namespace open_dtc_server
                 // Send handshake request
                 if (!send_ssl_data(request_str.c_str(), request_str.length()))
                 {
-                    open_dtc_server::util::log("[ERROR] Failed to send WebSocket handshake");
+                    open_dtc_server::util::simple_log("[ERROR] Failed to send WebSocket handshake");
                     return false;
                 }
 
@@ -472,23 +514,23 @@ namespace open_dtc_server
                 int bytes_received = receive_ssl_data(buffer, sizeof(buffer) - 1);
                 if (bytes_received <= 0)
                 {
-                    open_dtc_server::util::log("[ERROR] Failed to receive WebSocket handshake response");
+                    open_dtc_server::util::simple_log("[ERROR] Failed to receive WebSocket handshake response");
                     return false;
                 }
 
                 buffer[bytes_received] = '\\0';
                 std::string response(buffer);
 
-                open_dtc_server::util::log("[DEBUG] WebSocket handshake response:\\n" + response);
+                open_dtc_server::util::simple_log("[DEBUG] WebSocket handshake response:\\n" + response);
 
                 // Validate response
                 if (!validate_websocket_response(response))
                 {
-                    open_dtc_server::util::log("[ERROR] Invalid WebSocket handshake response");
+                    open_dtc_server::util::simple_log("[ERROR] Invalid WebSocket handshake response");
                     return false;
                 }
 
-                open_dtc_server::util::log("[SUCCESS] WebSocket handshake completed");
+                open_dtc_server::util::simple_log("[SUCCESS] WebSocket handshake completed");
                 return true;
             }
 
@@ -520,7 +562,7 @@ namespace open_dtc_server
 
                         char error_buf[256];
                         ERR_error_string_n(ERR_get_error(), error_buf, sizeof(error_buf));
-                        open_dtc_server::util::log("[ERROR] SSL_write failed: " + std::string(error_buf));
+                        open_dtc_server::util::simple_log("[ERROR] SSL_write failed: " + std::string(error_buf));
                         return false;
                     }
                     total_sent += sent;
@@ -547,7 +589,7 @@ namespace open_dtc_server
 
                     char error_buf[256];
                     ERR_error_string_n(ERR_get_error(), error_buf, sizeof(error_buf));
-                    open_dtc_server::util::log("[WARNING] SSL_read failed: " + std::string(error_buf));
+                    open_dtc_server::util::simple_log("[WARNING] SSL_read failed: " + std::string(error_buf));
                     return -1;
                 }
 
@@ -559,7 +601,7 @@ namespace open_dtc_server
                 if (!connected_.load())
                     return;
 
-                open_dtc_server::util::log("[WS] Disconnecting SSL WebSocket");
+                open_dtc_server::util::simple_log("[WS] Disconnecting SSL WebSocket");
 
                 should_stop_.store(true);
                 connected_.store(false);
@@ -599,12 +641,12 @@ namespace open_dtc_server
                     connection_callback_(false);
                 }
 
-                open_dtc_server::util::log("[SUCCESS] SSL WebSocket disconnected");
+                open_dtc_server::util::simple_log("[SUCCESS] SSL WebSocket disconnected");
             }
 
             void SSLWebSocketClient::worker_loop()
             {
-                open_dtc_server::util::log("[WORKER] SSL WebSocket worker thread started");
+                open_dtc_server::util::simple_log("[WORKER] SSL WebSocket worker thread started");
 
                 while (!should_stop_.load() && connected_.load())
                 {
@@ -612,12 +654,12 @@ namespace open_dtc_server
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 }
 
-                open_dtc_server::util::log("[WORKER] SSL WebSocket worker thread ended");
+                open_dtc_server::util::simple_log("[WORKER] SSL WebSocket worker thread ended");
             }
 
             void SSLWebSocketClient::ping_loop()
             {
-                open_dtc_server::util::log("[PING] WebSocket ping thread started");
+                open_dtc_server::util::simple_log("[PING] WebSocket ping thread started");
 
                 while (!should_stop_.load() && connected_.load())
                 {
@@ -628,11 +670,11 @@ namespace open_dtc_server
                         // Send ping frame (opcode 0x9)
                         std::vector<uint8_t> ping_frame = create_websocket_frame("ping", 0x9);
                         send_ssl_data((char *)ping_frame.data(), ping_frame.size());
-                        open_dtc_server::util::log("[PING] Sent WebSocket ping");
+                        open_dtc_server::util::simple_log("[PING] Sent WebSocket ping");
                     }
                 }
 
-                open_dtc_server::util::log("[PING] WebSocket ping thread ended");
+                open_dtc_server::util::simple_log("[PING] WebSocket ping thread ended");
             }
 
             void SSLWebSocketClient::process_incoming_messages()
@@ -648,11 +690,11 @@ namespace open_dtc_server
                     // This is a simplified version - full implementation would handle frame fragmentation
                     if (incoming_buffer_.size() >= 2)
                     {
-                        // Basic WebSocket frame parsing
-                        std::string message(incoming_buffer_.begin(), incoming_buffer_.end());
+                        // Parse WebSocket frame
+                        std::string message = parse_websocket_frame(incoming_buffer_);
                         incoming_buffer_.clear();
 
-                        if (message_callback_)
+                        if (!message.empty() && message_callback_)
                         {
                             message_callback_(message);
                         }
@@ -710,7 +752,7 @@ namespace open_dtc_server
             {
                 if (!connected_.load())
                 {
-                    open_dtc_server::util::log("[ERROR] Cannot send message - not connected");
+                    open_dtc_server::util::simple_log("[ERROR] Cannot send message - not connected");
                     return false;
                 }
 
@@ -720,7 +762,7 @@ namespace open_dtc_server
                 if (success)
                 {
                     messages_sent_.fetch_add(1);
-                    open_dtc_server::util::log("[SEND] Message sent: " + message.substr(0, 100) + "...");
+                    open_dtc_server::util::simple_log("[SEND] Message sent: " + message.substr(0, 100) + "...");
                 }
 
                 return success;
@@ -730,7 +772,7 @@ namespace open_dtc_server
             {
                 if (!credentials_loaded_)
                 {
-                    open_dtc_server::util::log("[WARNING] Cannot authenticate - JWT credentials not loaded");
+                    open_dtc_server::util::simple_log("[WARNING] Cannot authenticate - JWT credentials not loaded");
                     return false;
                 }
 
@@ -786,6 +828,121 @@ namespace open_dtc_server
             void SSLWebSocketClient::set_error_callback(std::function<void(const std::string &)> callback)
             {
                 error_callback_ = callback;
+            }
+
+            std::string SSLWebSocketClient::parse_websocket_frame(const std::vector<uint8_t> &frame_data)
+            {
+                if (frame_data.size() < 2)
+                    return "";
+
+                // Parse WebSocket frame header
+                uint8_t first_byte = frame_data[0];
+                uint8_t second_byte = frame_data[1];
+
+                bool fin = (first_byte & 0x80) != 0;
+                bool rsv1 = (first_byte & 0x40) != 0; // Per-Message-Deflate extension
+                bool rsv2 = (first_byte & 0x20) != 0;
+                bool rsv3 = (first_byte & 0x10) != 0;
+                uint8_t opcode = first_byte & 0x0F;
+
+                bool mask = (second_byte & 0x80) != 0;
+                uint64_t payload_length = second_byte & 0x7F;
+
+                size_t header_length = 2;
+
+                // Extended payload length
+                if (payload_length == 126)
+                {
+                    if (frame_data.size() < 4)
+                        return "";
+                    payload_length = (static_cast<uint64_t>(frame_data[2]) << 8) |
+                                     frame_data[3];
+                    header_length = 4;
+                }
+                else if (payload_length == 127)
+                {
+                    if (frame_data.size() < 10)
+                        return "";
+                    payload_length = 0;
+                    for (int i = 0; i < 8; i++)
+                    {
+                        payload_length = (payload_length << 8) | frame_data[2 + i];
+                    }
+                    header_length = 10;
+                }
+
+                // Masking key (if present)
+                std::vector<uint8_t> masking_key(4);
+                if (mask)
+                {
+                    if (frame_data.size() < header_length + 4)
+                        return "";
+                    std::copy(frame_data.begin() + header_length,
+                              frame_data.begin() + header_length + 4,
+                              masking_key.begin());
+                    header_length += 4;
+                }
+
+                // Extract payload
+                if (frame_data.size() < header_length + payload_length)
+                    return "";
+
+                std::vector<uint8_t> payload(frame_data.begin() + header_length,
+                                             frame_data.begin() + header_length + payload_length);
+
+                // Unmask payload if needed
+                if (mask)
+                {
+                    for (size_t i = 0; i < payload.size(); i++)
+                    {
+                        payload[i] ^= masking_key[i % 4];
+                    }
+                }
+
+                // Handle different opcodes
+                if (opcode == 0x1) // Text frame
+                {
+                    // Check if data is compressed (RSV1 bit set for Per-Message-Deflate)
+                    if (rsv1)
+                    {
+                        // Decompress the payload
+                        return decompress_deflate(payload);
+                    }
+                    else
+                    {
+                        return std::string(payload.begin(), payload.end());
+                    }
+                }
+                else if (opcode == 0x2) // Binary frame
+                {
+                    // For binary frames, also check compression
+                    if (rsv1)
+                    {
+                        return decompress_deflate(payload);
+                    }
+                    else
+                    {
+                        return std::string(payload.begin(), payload.end());
+                    }
+                }
+                else if (opcode == 0x8) // Close frame
+                {
+                    open_dtc_server::util::simple_log("[INFO] Received WebSocket close frame");
+                    return "";
+                }
+                else if (opcode == 0x9) // Ping frame
+                {
+                    open_dtc_server::util::simple_log("[INFO] Received WebSocket ping frame");
+                    // Should send pong response
+                    return "";
+                }
+                else if (opcode == 0xA) // Pong frame
+                {
+                    open_dtc_server::util::simple_log("[INFO] Received WebSocket pong frame");
+                    return "";
+                }
+
+                return "";
             }
 
             std::chrono::steady_clock::time_point SSLWebSocketClient::get_last_message_time() const

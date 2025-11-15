@@ -6,6 +6,10 @@ test_curl_build/
 /out/
 /CMakeFiles/
 
+# vcpkg installed packages (never commit these)
+vcpkg_installed/
+/vcpkg_installed/
+
 # Visual Studio / Windows
 .vs/
 *.vcxproj*
