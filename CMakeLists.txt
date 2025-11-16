@@ -85,6 +85,7 @@ add_library(coinbase_feed STATIC
     src/exchanges/coinbase/coinbase_feed.cpp
     src/exchanges/coinbase/websocket_client.cpp  # Re-enabled with working implementation
     src/exchanges/coinbase/ssl_websocket_client.cpp  # New SSL/TLS WebSocket client with JWT
+    src/exchanges/coinbase/rest_client.cpp  # REST API client for account data
 )
 
 # Create Binance feed library

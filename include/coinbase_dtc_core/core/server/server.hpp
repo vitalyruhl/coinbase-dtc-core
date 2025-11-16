@@ -43,6 +43,9 @@ namespace coinbase_dtc_core
                 // Exchange configuration
                 std::vector<open_dtc_server::exchanges::base::ExchangeConfig> exchanges;
 
+                // Credentials configuration
+                std::string credentials_file_path = "cdp_api_key.json";
+
                 // Logging
                 bool enable_logging = true;
                 std::string log_level = "INFO";
@@ -197,7 +200,10 @@ namespace coinbase_dtc_core
                 void on_exchange_connection(bool connected, const std::string &exchange);
                 void on_exchange_error(const std::string &error, const std::string &exchange);
 
-                // Socket management
+                // Account data
+                void send_account_data_to_client(std::shared_ptr<ClientConnection> client);
+                void send_position_update_to_client(std::shared_ptr<ClientConnection> client,
+                                                    const std::string &currency, const std::string &total_balance, const std::string &available); // Socket management
                 bool initialize_sockets();
                 void cleanup_sockets();
                 bool create_server_socket();

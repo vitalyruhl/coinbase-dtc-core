@@ -1,6 +1,9 @@
 #include "coinbase_dtc_core/core/server/server.hpp"
 #include "coinbase_dtc_core/core/util/log.hpp"
 #include "coinbase_dtc_core/exchanges/factory/exchange_factory.hpp"
+#include "coinbase_dtc_core/exchanges/coinbase/rest_client.hpp"
+#include "coinbase_dtc_core/core/auth/cdp_credentials.hpp"
+#include "coinbase_dtc_core/core/auth/jwt_auth.hpp"
 #include <iostream>
 #include <sstream>
 #include <chrono>
@@ -602,13 +605,8 @@ namespace coinbase_dtc_core
 
                     std::cout << "LogonResponse sent to client " + std::to_string(client->get_client_id()) << std::endl;
 
-                    // TODO: Send real account data after successful login
-                    // For now, client shows simulation data until we implement:
-                    // 1. CoinbaseRestClient integration
-                    // 2. DTC account balance message types
-                    // 3. Real Coinbase API authentication
-
-                    std::cout << "TODO: Account data integration needed - client shows simulation" << std::endl;
+                    // Send real account data after successful login
+                    send_account_data_to_client(client);
                     break;
                 }
 
@@ -662,6 +660,7 @@ namespace coinbase_dtc_core
                             subscriptions.push_back(market_req->symbol);
                         }
 
+                        bool client_subscription = true;
                         if (client_subscription)
                         {
                             std::cout << "[SUCCESS] Client " + std::to_string(client->get_client_id()) + " subscribed to " + market_req->symbol + " (ID: " + std::to_string(market_req->symbol_id) + ")" << std::endl;
@@ -673,11 +672,23 @@ namespace coinbase_dtc_core
                         auto &subscriptions = client->get_session().subscribed_symbols;
                         subscriptions.erase(std::remove(subscriptions.begin(), subscriptions.end(), market_req->symbol), subscriptions.end());
 
+                        bool client_unsubscription = true;
                         if (client_unsubscription)
                         {
                             std::cout << "[INFO] Client " + std::to_string(client->get_client_id()) + " unsubscribed from " + market_req->symbol << std::endl;
                         }
                     }
+                    break;
+                }
+
+                case open_dtc_server::core::dtc::MessageType::CURRENT_POSITIONS_REQUEST:
+                {
+                    auto *positions_req = static_cast<open_dtc_server::core::dtc::CurrentPositionsRequest *>(message.get());
+
+                    std::cout << "CurrentPositionsRequest from client " + std::to_string(client->get_client_id()) + " for account: " + positions_req->trade_account << std::endl;
+
+                    // Send real account data
+                    send_account_data_to_client(client);
                     break;
                 }
 
@@ -792,6 +803,111 @@ namespace coinbase_dtc_core
             std::string ClientConnection::get_client_info() const
             {
                 return "Client " + std::to_string(client_id_) + " - " + session_.client_info;
+            }
+
+            void DTCServer::send_account_data_to_client(std::shared_ptr<ClientConnection> client)
+            {
+                std::cout << "[ACCOUNT] Fetching real Coinbase account data for client " + std::to_string(client->get_client_id()) << std::endl;
+
+                try
+                {
+                    // Load Coinbase credentials using the CDP format from configured path
+                    auto credentials = open_dtc_server::auth::CDPCredentials::from_json_file(config_.credentials_file_path);
+
+                    if (!credentials.is_valid())
+                    {
+                        credentials = open_dtc_server::auth::CDPCredentials::from_environment();
+                    }
+
+                    if (!credentials.is_valid())
+                    {
+                        std::cout << "[ERROR] No Coinbase CDP credentials available - cannot fetch account data" << std::endl;
+                        std::cout << "[INFO] Tried credentials file: " + config_.credentials_file_path << std::endl;
+                        std::cout << "[INFO] Use --credentials <path> to specify credentials file location" << std::endl;
+                        std::cout << "[INFO] Account data request failed - no credentials configured" << std::endl;
+                        return;
+                    }
+
+                    // Create REST client and fetch account data
+                    open_dtc_server::exchanges::coinbase::CoinbaseRestClient rest_client(credentials);
+                    rest_client.set_sandbox_mode(false); // Use production API
+
+                    std::vector<open_dtc_server::exchanges::coinbase::AccountBalance> accounts;
+                    if (rest_client.get_accounts(accounts))
+                    {
+                        std::cout << "[SUCCESS] Retrieved " + std::to_string(accounts.size()) + " account balances from Coinbase" << std::endl;
+
+                        // Send real account data to client via DTC PositionUpdate messages
+                        for (const auto &account : accounts)
+                        {
+                            double balance = std::stod(account.total_balance);
+                            if (balance > 0.0) // Only send non-zero balances
+                            {
+                                std::cout << "[REAL DATA] " + account.currency + ": " + account.total_balance +
+                                                 " (Available: " + account.available + ", Hold: " + account.hold + ")"
+                                          << std::endl;
+
+                                // Send DTC PositionUpdate message to client
+                                send_position_update_to_client(client, account.currency, account.total_balance, account.available);
+                            }
+                        }
+
+                        std::cout << "[SUCCESS] Sent real Coinbase account data to client via DTC protocol" << std::endl;
+                    }
+                    else
+                    {
+                        std::cout << "[ERROR] Failed to fetch account data from Coinbase: " + rest_client.get_last_error() << std::endl;
+                        std::cout << "[ERROR] Account data request failed - API error" << std::endl;
+                    }
+                }
+                catch (const std::exception &e)
+                {
+                    std::cout << "[ERROR] Exception fetching account data: " + std::string(e.what()) << std::endl;
+                    std::cout << "[ERROR] Account data request failed - exception occurred" << std::endl;
+                }
+            }
+
+            void DTCServer::send_position_update_to_client(std::shared_ptr<ClientConnection> client,
+                                                           const std::string &currency, const std::string &total_balance, const std::string &available)
+            {
+                try
+                {
+                    // Map Coinbase currency to trading symbol format
+                    std::string symbol = currency;
+                    if (symbol == "BTC")
+                        symbol = "BTC-USD";
+                    else if (symbol == "ETH")
+                        symbol = "ETH-USD";
+                    else if (symbol == "SOL")
+                        symbol = "SOL-USD";
+                    else if (symbol == "USDC" || symbol == "EUR")
+                        symbol = currency; // Keep as-is for base currencies
+                    else
+                        symbol = currency + "-USD"; // Default mapping
+
+                    double quantity = std::stod(total_balance);
+                    double available_amount = std::stod(available);
+
+                    std::cout << "[DTC] Sending PositionUpdate to client for " + symbol + ": " + std::to_string(quantity) << std::endl;
+
+                    // Create and send real DTC PositionUpdate message
+                    open_dtc_server::core::dtc::PositionUpdate position_update;
+                    position_update.trade_account = "COINBASE";
+                    position_update.symbol = symbol;
+                    position_update.quantity = quantity;
+                    position_update.average_price = 0.0; // Not provided by Coinbase accounts API
+                    position_update.position_identifier = currency;
+
+                    // Serialize and send the DTC message
+                    auto message_data = position_update.serialize();
+                    client->send_message(message_data);
+
+                    std::cout << "[CLIENT MESSAGE] Sent DTC PositionUpdate for " + symbol + ": " + std::to_string(quantity) + " (Available: " + std::to_string(available_amount) + ")" << std::endl;
+                }
+                catch (const std::exception &e)
+                {
+                    std::cout << "[ERROR] Failed to send position update: " + std::string(e.what()) << std::endl;
+                }
             }
 
         } // namespace server

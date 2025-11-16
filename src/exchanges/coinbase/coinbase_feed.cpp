@@ -140,6 +140,19 @@ namespace open_dtc_server
                 notify_connection(false);
             }
 
+            void CoinbaseFeed::set_credentials(const std::string &api_key_id, const std::string &private_key)
+            {
+                if (ssl_websocket_client_)
+                {
+                    ssl_websocket_client_->set_credentials(api_key_id, private_key);
+                    util::simple_log("[COINBASE] Credentials passed to SSL WebSocket client");
+                }
+                else
+                {
+                    util::simple_log("[WARNING] Cannot set credentials - SSL WebSocket client not initialized");
+                }
+            }
+
             bool CoinbaseFeed::is_connected() const
             {
                 return connected_.load();
@@ -352,6 +365,11 @@ namespace open_dtc_server
                             // Handle heartbeat
                             handle_heartbeat_message(message);
                         }
+                        else if (message_type == "subscriptions")
+                        {
+                            // Handle subscription confirmation from Coinbase
+                            handle_subscriptions_message(message);
+                        }
                         else if (message_type == "error")
                         {
                             // Handle error
@@ -454,10 +472,31 @@ namespace open_dtc_server
                 }
             }
 
-            void CoinbaseFeed::handle_ticker_message(const std::string &message)
+            void CoinbaseFeed::process_websocket_message(const std::string &message)
             {
                 try
                 {
+                    // Skip empty messages
+                    if (message.empty())
+                    {
+                        return;
+                    }
+
+                    // Check if message looks like binary data (contains non-printable characters early on)
+                    if (message.length() > 0 && (static_cast<unsigned char>(message[0]) > 127 ||
+                                                 (message.length() > 1 && static_cast<unsigned char>(message[1]) > 127)))
+                    {
+                        util::simple_log("[COINBASE] Skipping binary/compressed WebSocket frame");
+                        return;
+                    }
+
+                    // Skip if it doesn't start with JSON-like characters
+                    if (message[0] != '{' && message[0] != '[')
+                    {
+                        util::simple_log("[COINBASE] Skipping non-JSON WebSocket message");
+                        return;
+                    }
+
                     nlohmann::json json = nlohmann::json::parse(message);
 
                     if (json.contains("product_id") && json.contains("price"))
@@ -501,6 +540,35 @@ namespace open_dtc_server
                 }
             }
 
+            void CoinbaseFeed::handle_ticker_message(const std::string &message)
+            {
+                try
+                {
+                    nlohmann::json json = nlohmann::json::parse(message);
+
+                    if (json.contains("product_id") && json.contains("price"))
+                    {
+                        std::string product_id = json["product_id"];
+                        double price = std::stod(json["price"].get<std::string>());
+
+                        // Log ticker updates occasionally
+                        static int ticker_count = 0;
+                        ticker_count++;
+                        if (ticker_count % 100 == 0) // Log every 100th ticker
+                        {
+                            util::simple_log("[COINBASE] Ticker " + product_id + ": $" + std::to_string(price));
+                        }
+
+                        // Could forward to DTC clients for price updates
+                        // For now, just acknowledge we received it
+                    }
+                }
+                catch (const std::exception &e)
+                {
+                    util::simple_log("[ERROR] Failed to parse ticker message: " + std::string(e.what()));
+                }
+            }
+
             void CoinbaseFeed::handle_heartbeat_message(const std::string &message)
             {
                 util::simple_log("[COINBASE] Heartbeat received - connection alive");
@@ -529,6 +597,42 @@ namespace open_dtc_server
                 catch (const std::exception &e)
                 {
                     util::simple_log("[ERROR] Failed to parse error message: " + std::string(e.what()));
+                }
+            }
+
+            void CoinbaseFeed::handle_subscriptions_message(const std::string &message)
+            {
+                try
+                {
+                    nlohmann::json json = nlohmann::json::parse(message);
+
+                    // This is a confirmation message from Coinbase about active subscriptions
+                    util::simple_log("[COINBASE] Subscription confirmation received");
+
+                    // Log the channels we're subscribed to
+                    if (json.contains("channels"))
+                    {
+                        for (const auto &channel : json["channels"])
+                        {
+                            if (channel.contains("name"))
+                            {
+                                std::string channel_name = channel["name"];
+                                util::simple_log("[COINBASE] Subscribed to channel: " + channel_name);
+
+                                if (channel.contains("product_ids"))
+                                {
+                                    for (const auto &product : channel["product_ids"])
+                                    {
+                                        util::simple_log("[COINBASE] - Product: " + product.get<std::string>());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (const std::exception &e)
+                {
+                    util::simple_log("[ERROR] Failed to parse subscriptions message: " + std::string(e.what()));
                 }
             }
 

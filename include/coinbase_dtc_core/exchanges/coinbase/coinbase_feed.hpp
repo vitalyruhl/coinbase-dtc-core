@@ -54,6 +54,9 @@ namespace open_dtc_server
                 explicit CoinbaseFeed(const base::ExchangeConfig &config);
                 ~CoinbaseFeed() override;
 
+                // Credentials management
+                void set_credentials(const std::string &api_key_id, const std::string &private_key);
+
                 // ========================================================================
                 // IMPLEMENTATION OF PURE VIRTUAL METHODS
                 // ========================================================================
@@ -122,6 +125,7 @@ namespace open_dtc_server
                 void handle_level2_message(const std::string &message);
                 void handle_ticker_message(const std::string &message);
                 void handle_heartbeat_message(const std::string &message);
+                void handle_subscriptions_message(const std::string &message);
                 void handle_error_message(const std::string &message);
 
                 // WebSocket callbacks

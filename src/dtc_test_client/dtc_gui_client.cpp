@@ -249,7 +249,7 @@ void DTCTestClientGUI::OnCreate(HWND hwnd)
     CreateWindowA("STATIC", "Account Information:", WS_VISIBLE | WS_CHILD,
                   account_info_x, y - 25, 150, 20, hwnd, nullptr, m_hInstance, nullptr);
 
-    m_editAccountInfo = CreateWindowA("EDIT", "Not connected\\r\\n\\r\\nConnect to server to see account information",
+    m_editAccountInfo = CreateWindowA("EDIT", "Not connected\r\n\r\nConnect to server to see account information",
                                       WS_VISIBLE | WS_CHILD | WS_BORDER | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY,
                                       account_info_x, y, console_width, 200, hwnd, (HMENU)ID_EDIT_ACCOUNT_INFO, m_hInstance, nullptr);
 
@@ -429,44 +429,8 @@ void DTCTestClientGUI::GetAccountInfo()
         return;
     }
 
-    UpdateConsole("=== ACCOUNT INFO REQUEST ===");
-    UpdateConsole("Sending DTC LogonRequest to server (with account info request)...");
-
-    try
-    {
-        // Create LogonRequest message using DTC protocol
-        // This will trigger the server to respond with account information
-        open_dtc_server::core::dtc::LogonRequest logon_request;
-        logon_request.protocol_version = open_dtc_server::core::dtc::DTC_PROTOCOL_VERSION;
-        logon_request.username = "test_user";
-        logon_request.password = "";
-        logon_request.client_name = "DTC Test Client GUI";
-        logon_request.trade_account = "";
-        logon_request.heartbeat_interval_in_seconds = 10;
-        logon_request.general_text_data = "Account info request";
-
-        // Serialize the message
-        std::vector<uint8_t> message_data = logon_request.serialize();
-
-        // Send to server
-        if (SendDTCMessage(message_data))
-        {
-            UpdateConsole("LogonRequest sent successfully");
-            UpdateConsole("Waiting for server response with account data...");
-            UpdateConsole("Server will provide real Coinbase account data via DTC protocol");
-            UpdateAccountInfo("Account Request: SENT");
-            UpdateAccountInfo("Waiting for Coinbase data...");
-        }
-        else
-        {
-            UpdateConsole("Failed to send LogonRequest");
-            UpdateAccountInfo("Account Request: FAILED");
-        }
-    }
-    catch (const std::exception &e)
-    {
-        UpdateConsole("Error creating LogonRequest: " + std::string(e.what()));
-    }
+    // Simply call GetRealAccountData which handles the account request properly
+    GetRealAccountData();
 }
 
 void DTCTestClientGUI::LoadAvailableSymbols()
@@ -626,42 +590,51 @@ void DTCTestClientGUI::UnsubscribeFromSymbol()
 
 void DTCTestClientGUI::GetRealAccountData()
 {
-    UpdateConsole("[TODO] Real Coinbase API integration needed...");
+    UpdateConsole("Requesting real account data from server...");
 
-    // IMPORTANT: This is still mock data until server implements real Coinbase API
-    UpdateAccountInfo("=== INTEGRATION STATUS ===");
-    UpdateAccountInfo("[NOT IMPLEMENTED] Server-side Coinbase API: NOT IMPLEMENTED");
-    UpdateAccountInfo("[NOT AVAILABLE] Real account data: NOT AVAILABLE");
-    UpdateAccountInfo("[MISSING] DTC account messages: MISSING");
+    if (!m_isConnected)
+    {
+        UpdateAccountInfo("Error: Not connected to server");
+        return;
+    }
+
+    UpdateAccountInfo("=== REQUESTING REAL COINBASE DATA ===");
+    UpdateAccountInfo("Sending account request to server...");
+    UpdateAccountInfo("Server will fetch real data from Coinbase API...");
     UpdateAccountInfo("");
 
-    UpdateAccountInfo("=== WHAT'S NEEDED ===");
-    UpdateAccountInfo("1. Server must implement Coinbase REST API calls");
-    UpdateAccountInfo("2. Server must add DTC account message types");
-    UpdateAccountInfo("3. Server must fetch real balances from Coinbase");
-    UpdateAccountInfo("4. Server must send real data via DTC protocol");
-    UpdateAccountInfo("");
+    // Create and send LogonRequest directly (without calling GetAccountInfo to avoid recursion)
+    try
+    {
+        open_dtc_server::core::dtc::LogonRequest logon_request;
+        logon_request.protocol_version = open_dtc_server::core::dtc::DTC_PROTOCOL_VERSION;
+        logon_request.username = "test_user";
+        logon_request.password = "";
+        logon_request.client_name = "DTC Test Client GUI";
+        logon_request.trade_account = "";
+        logon_request.heartbeat_interval_in_seconds = 10;
+        logon_request.general_text_data = "Real account data request";
 
-    UpdateAccountInfo("=== CURRENT STATUS ===");
-    UpdateAccountInfo("[WARNING] All account data below is SIMULATED");
-    UpdateAccountInfo("[WARNING] No real Coinbase API connection exists");
-    UpdateAccountInfo("[WARNING] Server returns mock/hardcoded responses");
-    UpdateAccountInfo("");
+        std::vector<uint8_t> message_data = logon_request.serialize();
 
-    // Show mock data but clearly labeled
-    UpdateAccountInfo("=== SIMULATED ACCOUNT DATA ===");
-    UpdateAccountInfo("[SIMULATION] Account Type: Coinbase Pro Sandbox");
-    UpdateAccountInfo("[SIMULATION] USD: $0.00 (No real connection)");
-    UpdateAccountInfo("[SIMULATION] BTC: 0.00000000 (No real connection)");
-    UpdateAccountInfo("[SIMULATION] ETH: 0.00000000 (No real connection)");
-    UpdateAccountInfo("");
-
-    UpdateAccountInfo("[SIMULATION] Status: Waiting for real implementation");
-    UpdateAccountInfo("[SIMULATION] Next: Implement server-side Coinbase API");
-
-    UpdateConsole("[TODO] Account display ready - need server Coinbase integration");
-    UpdateConsole("[TODO] Current data is simulation only, not real Coinbase");
+        if (SendDTCMessage(message_data))
+        {
+            UpdateConsole("Account request sent successfully to server");
+            UpdateAccountInfo("=== WAITING FOR REAL DATA ===");
+            UpdateAccountInfo("Position updates will appear below when received from server...");
+        }
+        else
+        {
+            UpdateConsole("Failed to send account request");
+            UpdateAccountInfo("Account Request: FAILED");
+        }
+    }
+    catch (const std::exception &e)
+    {
+        UpdateConsole("Error creating account request: " + std::string(e.what()));
+    }
 }
+
 void DTCTestClientGUI::UpdateConsole(const std::string &message)
 {
     if (!m_editConsole)
@@ -877,10 +850,7 @@ void DTCTestClientGUI::HandleDTCResponse(std::unique_ptr<open_dtc_server::core::
             UpdateAccountInfo("Market Data: " + std::string(logon_resp->market_depth_is_supported ? "Supported" : "Not Supported"));
             UpdateAccountInfo("Status: Ready for requests");
             UpdateAccountInfo("");
-            UpdateAccountInfo("Getting account information...");
-
-            // Automatically show real account data after successful login
-            GetRealAccountData();
+            UpdateAccountInfo("Click 'Account Info' button to request Coinbase data...");
         }
         else
         {
@@ -930,6 +900,26 @@ void DTCTestClientGUI::HandleDTCResponse(std::unique_ptr<open_dtc_server::core::
         SendDTCMessage(response_data);
         break;
     }
+
+    case open_dtc_server::core::dtc::MessageType::POSITION_UPDATE:
+    {
+        auto *position_update = static_cast<open_dtc_server::core::dtc::PositionUpdate *>(message.get());
+
+        UpdateConsole("[REAL COINBASE DATA] Position Update Received:");
+        UpdateConsole("  Symbol: " + position_update->symbol);
+        UpdateConsole("  Quantity: " + std::to_string(position_update->quantity));
+        UpdateConsole("  Average Price: " + std::to_string(position_update->average_price));
+
+        // Display in Account Info panel
+        UpdateAccountInfo("=== COINBASE POSITION ===");
+        UpdateAccountInfo("Symbol: " + position_update->symbol);
+        UpdateAccountInfo("Quantity: " + std::to_string(position_update->quantity));
+        UpdateAccountInfo("Avg Price: " + std::to_string(position_update->average_price));
+        UpdateAccountInfo("Trade Account: " + position_update->trade_account);
+        UpdateAccountInfo("");
+        break;
+    }
+
     default:
         UpdateConsole("[INFO] Received DTC message type: " +
                       std::to_string(static_cast<uint16_t>(message->get_type())));

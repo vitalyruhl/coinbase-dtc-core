@@ -165,6 +165,22 @@ namespace open_dtc_server
                 ssl_initialized_ = false;
             }
 
+            void SSLWebSocketClient::set_credentials(const std::string &api_key_id, const std::string &private_key)
+            {
+                api_key_id_ = api_key_id;
+                private_key_ = private_key;
+                credentials_loaded_ = !api_key_id_.empty() && !private_key_.empty();
+
+                if (credentials_loaded_)
+                {
+                    open_dtc_server::util::simple_log("[SUCCESS] JWT credentials set via parameter");
+                }
+                else
+                {
+                    open_dtc_server::util::simple_log("[WARNING] Invalid credentials provided via parameter");
+                }
+            }
+
             std::string SSLWebSocketClient::load_api_key_id()
             {
                 try
@@ -687,16 +703,30 @@ namespace open_dtc_server
                     incoming_buffer_.insert(incoming_buffer_.end(), buffer, buffer + bytes_received);
 
                     // Process complete WebSocket frames
-                    // This is a simplified version - full implementation would handle frame fragmentation
-                    if (incoming_buffer_.size() >= 2)
+                    while (incoming_buffer_.size() >= 2)
                     {
-                        // Parse WebSocket frame
-                        std::string message = parse_websocket_frame(incoming_buffer_);
-                        incoming_buffer_.clear();
+                        // Check if we have enough data for a complete frame
+                        size_t frame_size = calculate_frame_size(incoming_buffer_);
+                        if (frame_size == 0 || incoming_buffer_.size() < frame_size)
+                        {
+                            break; // Wait for more data
+                        }
 
-                        if (!message.empty() && message_callback_)
+                        // Extract complete frame
+                        std::vector<uint8_t> frame_data(incoming_buffer_.begin(), incoming_buffer_.begin() + frame_size);
+                        incoming_buffer_.erase(incoming_buffer_.begin(), incoming_buffer_.begin() + frame_size);
+
+                        // Parse WebSocket frame
+                        std::string message = parse_websocket_frame(frame_data);
+
+                        // Only process text frames as JSON - ignore binary/control frames
+                        if (!message.empty() && message_callback_ && is_valid_json_start(message))
                         {
                             message_callback_(message);
+                        }
+                        else if (!message.empty() && !is_valid_json_start(message))
+                        {
+                            open_dtc_server::util::simple_log("[DEBUG] Ignoring non-JSON WebSocket frame (binary/control data)");
                         }
 
                         messages_received_.fetch_add(1);
@@ -915,15 +945,9 @@ namespace open_dtc_server
                 }
                 else if (opcode == 0x2) // Binary frame
                 {
-                    // For binary frames, also check compression
-                    if (rsv1)
-                    {
-                        return decompress_deflate(payload);
-                    }
-                    else
-                    {
-                        return std::string(payload.begin(), payload.end());
-                    }
+                    // Don't convert binary frames to string - they're not JSON
+                    open_dtc_server::util::simple_log("[DEBUG] Received binary WebSocket frame, ignoring (not JSON)");
+                    return ""; // Return empty string to avoid JSON parsing
                 }
                 else if (opcode == 0x8) // Close frame
                 {
@@ -943,6 +967,65 @@ namespace open_dtc_server
                 }
 
                 return "";
+            }
+
+            size_t SSLWebSocketClient::calculate_frame_size(const std::vector<uint8_t> &frame_data)
+            {
+                if (frame_data.size() < 2)
+                    return 0;
+
+                uint8_t second_byte = frame_data[1];
+                bool mask = (second_byte & 0x80) != 0;
+                uint64_t payload_length = second_byte & 0x7F;
+
+                size_t header_length = 2;
+
+                // Extended payload length
+                if (payload_length == 126)
+                {
+                    if (frame_data.size() < 4)
+                        return 0;
+                    payload_length = (static_cast<uint64_t>(frame_data[2]) << 8) |
+                                     frame_data[3];
+                    header_length = 4;
+                }
+                else if (payload_length == 127)
+                {
+                    if (frame_data.size() < 10)
+                        return 0;
+                    payload_length = 0;
+                    for (int i = 0; i < 8; i++)
+                    {
+                        payload_length = (payload_length << 8) | frame_data[2 + i];
+                    }
+                    header_length = 10;
+                }
+
+                // Add masking key size if present
+                if (mask)
+                {
+                    header_length += 4;
+                }
+
+                return header_length + static_cast<size_t>(payload_length);
+            }
+
+            bool SSLWebSocketClient::is_valid_json_start(const std::string &message)
+            {
+                if (message.empty())
+                    return false;
+
+                // Trim whitespace
+                size_t start = 0;
+                while (start < message.size() && std::isspace(message[start]))
+                    start++;
+
+                if (start >= message.size())
+                    return false;
+
+                // JSON should start with { or [
+                char first_char = message[start];
+                return first_char == '{' || first_char == '[';
             }
 
             std::chrono::steady_clock::time_point SSLWebSocketClient::get_last_message_time() const

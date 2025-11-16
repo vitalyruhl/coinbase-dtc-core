@@ -70,6 +70,7 @@ namespace open_dtc_server
                 bool subscribe_to_ticker(const std::vector<std::string> &symbols);
                 bool subscribe_to_level2(const std::vector<std::string> &symbols);
                 bool authenticate_with_jwt();
+                void set_credentials(const std::string &api_key_id, const std::string &private_key);
 
                 // Statistics
                 uint64_t get_messages_received() const { return messages_received_.load(); }
@@ -102,6 +103,8 @@ namespace open_dtc_server
                 // WebSocket frame handling
                 std::vector<uint8_t> create_websocket_frame(const std::string &payload, uint8_t opcode = 0x1);
                 std::string parse_websocket_frame(const std::vector<uint8_t> &frame);
+                size_t calculate_frame_size(const std::vector<uint8_t> &frame_data);
+                bool is_valid_json_start(const std::string &message);
 
                 // Worker threads
                 void worker_loop();

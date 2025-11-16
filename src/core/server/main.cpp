@@ -18,14 +18,40 @@ void signal_handler(int signal)
     }
 }
 
-int main()
+int main(int argc, char *argv[])
 {
     using namespace coinbase_dtc_core::core::server;
+
+    // Parse command line arguments
+    std::string credentials_path = "cdp_api_key.json"; // Default path
+
+    for (int i = 1; i < argc; i++)
+    {
+        std::string arg = argv[i];
+        if (arg == "--credentials" && i + 1 < argc)
+        {
+            credentials_path = argv[i + 1];
+            i++; // Skip next argument as it's the path
+        }
+        else if (arg == "--help" || arg == "-h")
+        {
+            std::cout << "Usage: " << argv[0] << " [options]\n";
+            std::cout << "Options:\n";
+            std::cout << "  --credentials <path>  Path to CDP API credentials file\n";
+            std::cout << "  --help, -h           Show this help message\n";
+            return 0;
+        }
+    }
 
     // Set log level to WARNING to reduce verbose output
     // open_dtc_server::util::set_log_level(open_dtc_server::util::LogLevel::WARNING);
 
     open_dtc_server::util::simple_log("[START] CoinbaseDTC Server Starting...");
+
+    if (credentials_path != "cdp_api_key.json")
+    {
+        open_dtc_server::util::simple_log("[CONFIG] Using credentials file: " + credentials_path);
+    }
 
     // Setup signal handling
     signal(SIGINT, signal_handler);
@@ -40,6 +66,7 @@ int main()
         config.server_name = "CoinbaseDTCServer";
         config.password = "";
         config.require_authentication = false;
+        config.credentials_file_path = credentials_path; // Set the credentials path
 
         // Create server instance
         DTCServer srv(config);

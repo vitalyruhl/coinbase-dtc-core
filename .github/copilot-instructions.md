@@ -48,6 +48,15 @@
  * - Observer pattern for market data updates
  * - Namespace organization: open_dtc_server is now the main namespace!
  * 
+ * Namespace Documentation Requirements:
+ * - MANDATORY: Every new namespace MUST be documented in /dev-info/namespaces.md
+ * - BEFORE creating any new namespace, update the namespaces.md file first
+ * - Include: full namespace path, purpose, location, key classes, directory mapping
+ * - Follow naming conventions: lowercase with underscores, use open_dtc_server hierarchy
+ * - NO EXCEPTIONS: Undocumented namespaces will break maintainability
+ * - Check for conflicts with existing namespaces before creating new ones
+ * - Reference /dev-info/namespaces.md when unsure about namespace structure
+ * 
  * Testing Approach:
  * - Unit tests for core components
  * - Integration tests for exchange connectivity
@@ -92,6 +101,14 @@
  * [MOCKED DATA] labels must be placed at the BEGINNING of log messages, not at the end
  * Never present fake data as real without explicit warning to user
  * Rule: Always prefix simulated/demo content with "[MOCKED DATA]" at the start of the message
+ * CRITICAL: NO MOCK DATA WITHOUT EXPLICIT USER REQUEST - only implement mock/test data when user explicitly asks for it
+ * Production code should always fetch real data from APIs - mock data only for testing when specifically requested
+ * 
+ * Problem Resolution Policy:
+ * - Never mark problems as "solved" or "fixed" until user explicitly confirms the fix works
+ * - Always test end-to-end functionality before claiming success
+ * - If tests fail or user reports continued issues, acknowledge the problem persists
+ * - Only declare success when: (1) All tests pass, OR (2) User explicitly confirms the fix works
  * Use emojis appropriately to indicate status: ✅ for done, 🚧 for in-progress, ⚠️ for warnings, but not in code
  * 
  * GitHub Actions & Continuous Integration:

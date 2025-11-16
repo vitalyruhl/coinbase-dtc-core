@@ -250,6 +250,15 @@ namespace open_dtc_server
                     }
                     break;
                 }
+                case MessageType::POSITION_UPDATE:
+                {
+                    auto msg = std::make_unique<PositionUpdate>();
+                    if (msg->deserialize(data, header->size))
+                    {
+                        return std::move(msg);
+                    }
+                    break;
+                }
                 default:
                     return nullptr;
                 }
@@ -375,9 +384,91 @@ namespace open_dtc_server
                     return "SECURITY_DEFINITION_FOR_SYMBOL_REQUEST";
                 case MessageType::SECURITY_DEFINITION_RESPONSE:
                     return "SECURITY_DEFINITION_RESPONSE";
+                case MessageType::POSITION_UPDATE:
+                    return "POSITION_UPDATE";
                 default:
                     return "UNKNOWN_" + std::to_string(static_cast<uint16_t>(type));
                 }
+            }
+
+            // PositionUpdate implementation
+            uint16_t PositionUpdate::get_size() const
+            {
+                return sizeof(MessageHeader) + trade_account.length() + 1 +
+                       symbol.length() + 1 + sizeof(double) * 2 +
+                       position_identifier.length() + 1;
+            }
+
+            std::vector<uint8_t> PositionUpdate::serialize() const
+            {
+                size_t total_size = get_size();
+                std::vector<uint8_t> buffer(total_size);
+                size_t offset = 0;
+
+                MessageHeader header(total_size, get_type());
+                std::memcpy(buffer.data() + offset, &header, sizeof(MessageHeader));
+                offset += sizeof(MessageHeader);
+
+                // Write trade_account (null-terminated string)
+                std::strcpy(reinterpret_cast<char *>(buffer.data() + offset), trade_account.c_str());
+                offset += trade_account.length() + 1;
+
+                // Write symbol (null-terminated string)
+                std::strcpy(reinterpret_cast<char *>(buffer.data() + offset), symbol.c_str());
+                offset += symbol.length() + 1;
+
+                // Write quantity
+                std::memcpy(buffer.data() + offset, &quantity, sizeof(double));
+                offset += sizeof(double);
+
+                // Write average_price
+                std::memcpy(buffer.data() + offset, &average_price, sizeof(double));
+                offset += sizeof(double);
+
+                // Write position_identifier (null-terminated string)
+                std::strcpy(reinterpret_cast<char *>(buffer.data() + offset), position_identifier.c_str());
+                offset += position_identifier.length() + 1;
+
+                return buffer;
+            }
+
+            bool PositionUpdate::deserialize(const uint8_t *data, uint16_t size)
+            {
+                if (size < sizeof(MessageHeader))
+                    return false;
+
+                size_t offset = sizeof(MessageHeader);
+
+                // Read trade_account
+                if (offset >= size)
+                    return false;
+                trade_account = std::string(reinterpret_cast<const char *>(data + offset));
+                offset += trade_account.length() + 1;
+
+                // Read symbol
+                if (offset >= size)
+                    return false;
+                symbol = std::string(reinterpret_cast<const char *>(data + offset));
+                offset += symbol.length() + 1;
+
+                // Read quantity
+                if (offset + sizeof(double) > size)
+                    return false;
+                std::memcpy(&quantity, data + offset, sizeof(double));
+                offset += sizeof(double);
+
+                // Read average_price
+                if (offset + sizeof(double) > size)
+                    return false;
+                std::memcpy(&average_price, data + offset, sizeof(double));
+                offset += sizeof(double);
+
+                // Read position_identifier
+                if (offset >= size)
+                    return false;
+                position_identifier = std::string(reinterpret_cast<const char *>(data + offset));
+
+                return true;
             }
 
         } // namespace dtc

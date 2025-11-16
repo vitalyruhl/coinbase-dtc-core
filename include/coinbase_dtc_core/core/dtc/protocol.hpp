@@ -392,6 +392,22 @@ namespace open_dtc_server
                 bool deserialize(const uint8_t *data, uint16_t size) override;
             };
 
+            // Position Update Message
+            class PositionUpdate : public DTCMessage
+            {
+            public:
+                std::string trade_account;
+                std::string symbol;
+                double quantity = 0.0;
+                double average_price = 0.0;
+                std::string position_identifier;
+
+                MessageType get_type() const override { return MessageType::POSITION_UPDATE; }
+                uint16_t get_size() const override;
+                std::vector<uint8_t> serialize() const override;
+                bool deserialize(const uint8_t *data, uint16_t size) override;
+            };
+
             // Security Definition Request Message
             class SecurityDefinitionForSymbolRequest : public DTCMessage
             {
