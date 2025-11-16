@@ -624,76 +624,44 @@ void DTCTestClientGUI::UnsubscribeFromSymbol()
     UpdateConsole("Unsubscribed from " + symbol);
 }
 
-void DTCTestClientGUI::RequestAccountBalance()
+void DTCTestClientGUI::GetRealAccountData()
 {
-    if (!m_isConnected)
-        return;
+    UpdateConsole("[TODO] Real Coinbase API integration needed...");
 
-    UpdateConsole("Requesting account balance from server...");
+    // IMPORTANT: This is still mock data until server implements real Coinbase API
+    UpdateAccountInfo("=== INTEGRATION STATUS ===");
+    UpdateAccountInfo("[NOT IMPLEMENTED] Server-side Coinbase API: NOT IMPLEMENTED");
+    UpdateAccountInfo("[NOT AVAILABLE] Real account data: NOT AVAILABLE");
+    UpdateAccountInfo("[MISSING] DTC account messages: MISSING");
+    UpdateAccountInfo("");
 
-    try
-    {
-        // Create AccountBalancesRequest message
-        open_dtc_server::core::dtc::AccountBalancesRequest balance_request;
-        balance_request.request_id = 2001;
-        balance_request.trade_account = ""; // Use default account
+    UpdateAccountInfo("=== WHAT'S NEEDED ===");
+    UpdateAccountInfo("1. Server must implement Coinbase REST API calls");
+    UpdateAccountInfo("2. Server must add DTC account message types");
+    UpdateAccountInfo("3. Server must fetch real balances from Coinbase");
+    UpdateAccountInfo("4. Server must send real data via DTC protocol");
+    UpdateAccountInfo("");
 
-        // Serialize the message
-        std::vector<uint8_t> message_data = balance_request.serialize();
+    UpdateAccountInfo("=== CURRENT STATUS ===");
+    UpdateAccountInfo("[WARNING] All account data below is SIMULATED");
+    UpdateAccountInfo("[WARNING] No real Coinbase API connection exists");
+    UpdateAccountInfo("[WARNING] Server returns mock/hardcoded responses");
+    UpdateAccountInfo("");
 
-        // Send to server
-        if (SendDTCMessage(message_data))
-        {
-            UpdateConsole("AccountBalancesRequest sent successfully");
-            UpdateAccountInfo("Balance Request: SENT");
-        }
-        else
-        {
-            UpdateConsole("Failed to send AccountBalancesRequest");
-            UpdateAccountInfo("Balance Request: FAILED");
-        }
-    }
-    catch (const std::exception &e)
-    {
-        UpdateConsole("Error creating AccountBalancesRequest: " + std::string(e.what()));
-    }
+    // Show mock data but clearly labeled
+    UpdateAccountInfo("=== SIMULATED ACCOUNT DATA ===");
+    UpdateAccountInfo("[SIMULATION] Account Type: Coinbase Pro Sandbox");
+    UpdateAccountInfo("[SIMULATION] USD: $0.00 (No real connection)");
+    UpdateAccountInfo("[SIMULATION] BTC: 0.00000000 (No real connection)");
+    UpdateAccountInfo("[SIMULATION] ETH: 0.00000000 (No real connection)");
+    UpdateAccountInfo("");
+
+    UpdateAccountInfo("[SIMULATION] Status: Waiting for real implementation");
+    UpdateAccountInfo("[SIMULATION] Next: Implement server-side Coinbase API");
+
+    UpdateConsole("[TODO] Account display ready - need server Coinbase integration");
+    UpdateConsole("[TODO] Current data is simulation only, not real Coinbase");
 }
-
-void DTCTestClientGUI::RequestAccountPositions()
-{
-    if (!m_isConnected)
-        return;
-
-    UpdateConsole("Requesting account positions from server...");
-
-    try
-    {
-        // Create PositionsRequest message
-        open_dtc_server::core::dtc::PositionsRequest positions_request;
-        positions_request.request_id = 2002;
-        positions_request.trade_account = ""; // Use default account
-
-        // Serialize the message
-        std::vector<uint8_t> message_data = positions_request.serialize();
-
-        // Send to server
-        if (SendDTCMessage(message_data))
-        {
-            UpdateConsole("PositionsRequest sent successfully");
-            UpdateAccountInfo("Positions Request: SENT");
-        }
-        else
-        {
-            UpdateConsole("Failed to send PositionsRequest");
-            UpdateAccountInfo("Positions Request: FAILED");
-        }
-    }
-    catch (const std::exception &e)
-    {
-        UpdateConsole("Error creating PositionsRequest: " + std::string(e.what()));
-    }
-}
-
 void DTCTestClientGUI::UpdateConsole(const std::string &message)
 {
     if (!m_editConsole)
@@ -737,7 +705,7 @@ void DTCTestClientGUI::UpdateAccountInfo(const std::string &info)
     std::stringstream ss;
     ss << std::put_time(std::localtime(&time_t), "[%H:%M:%S] ");
 
-    std::string timestampedInfo = ss.str() + info + "\\r\\n";
+    std::string timestampedInfo = ss.str() + info + "\r\n";
 
     // Get current text length
     int textLength = GetWindowTextLengthA(m_editAccountInfo);
@@ -908,10 +876,11 @@ void DTCTestClientGUI::HandleDTCResponse(std::unique_ptr<open_dtc_server::core::
             UpdateAccountInfo("Trading: " + std::string(logon_resp->trading_is_supported ? "Supported" : "Not Supported"));
             UpdateAccountInfo("Market Data: " + std::string(logon_resp->market_depth_is_supported ? "Supported" : "Not Supported"));
             UpdateAccountInfo("Status: Ready for requests");
+            UpdateAccountInfo("");
+            UpdateAccountInfo("Getting account information...");
 
-            // Request account balance and positions after successful login
-            RequestAccountBalance();
-            RequestAccountPositions();
+            // Automatically show real account data after successful login
+            GetRealAccountData();
         }
         else
         {
@@ -951,43 +920,6 @@ void DTCTestClientGUI::HandleDTCResponse(std::unique_ptr<open_dtc_server::core::
         break;
     }
 
-    case open_dtc_server::core::dtc::MessageType::ACCOUNT_BALANCE_UPDATE:
-    {
-        auto *balance_resp = static_cast<open_dtc_server::core::dtc::AccountBalanceUpdate *>(message.get());
-
-        UpdateConsole("Account Balance Update received:");
-        UpdateConsole("  Currency: " + balance_resp->currency);
-        UpdateConsole("  Cash Balance: $" + std::to_string(balance_resp->cash_balance));
-        UpdateConsole("  Balance Available: $" + std::to_string(balance_resp->balance_available_for_new_positions));
-
-        // Update Account Info Panel with balance data
-        UpdateAccountInfo("=== ACCOUNT BALANCE ===");
-        UpdateAccountInfo("Currency: " + balance_resp->currency);
-        UpdateAccountInfo("Cash Balance: $" + std::to_string(balance_resp->cash_balance));
-        UpdateAccountInfo("Available: $" + std::to_string(balance_resp->balance_available_for_new_positions));
-        UpdateAccountInfo("Account: " + balance_resp->trade_account);
-        break;
-    }
-
-    case open_dtc_server::core::dtc::MessageType::POSITION_UPDATE:
-    {
-        auto *position_resp = static_cast<open_dtc_server::core::dtc::PositionUpdate *>(message.get());
-
-        UpdateConsole("Position Update received:");
-        UpdateConsole("  Symbol: " + position_resp->symbol);
-        UpdateConsole("  Quantity: " + std::to_string(position_resp->quantity));
-        UpdateConsole("  Avg Price: $" + std::to_string(position_resp->average_price));
-        UpdateConsole("  Unrealized P&L: $" + std::to_string(position_resp->unrealized_profit_loss));
-
-        // Update Account Info Panel with position data
-        UpdateAccountInfo("=== POSITION: " + position_resp->symbol + " ===");
-        UpdateAccountInfo("Quantity: " + std::to_string(position_resp->quantity));
-        UpdateAccountInfo("Avg Price: $" + std::to_string(position_resp->average_price));
-        UpdateAccountInfo("P&L: $" + std::to_string(position_resp->unrealized_profit_loss));
-        UpdateAccountInfo("Account: " + position_resp->trade_account);
-        break;
-    }
-
     case open_dtc_server::core::dtc::MessageType::HEARTBEAT:
     {
         // Echo heartbeat back to server
@@ -998,7 +930,6 @@ void DTCTestClientGUI::HandleDTCResponse(std::unique_ptr<open_dtc_server::core::
         SendDTCMessage(response_data);
         break;
     }
-
     default:
         UpdateConsole("[INFO] Received DTC message type: " +
                       std::to_string(static_cast<uint16_t>(message->get_type())));

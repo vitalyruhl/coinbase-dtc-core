@@ -84,8 +84,7 @@ private:
     void ProcessIncomingData();
     void ProcessDTCMessages();
     void HandleDTCResponse(std::unique_ptr<open_dtc_server::core::dtc::DTCMessage> message);
-    void RequestAccountBalance();
-    void RequestAccountPositions();
+    void GetRealAccountData();
 
     // Window and control handles
     HWND m_hwnd = nullptr;

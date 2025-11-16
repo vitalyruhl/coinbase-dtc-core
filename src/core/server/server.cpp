@@ -498,7 +498,7 @@ namespace coinbase_dtc_core
 
                     if (broadcasts > 0)
                     {
-                        std::cout << "📡 Trade broadcasted: " + trade.symbol + " = $" + std::to_string(trade.price) + " to " + std::to_string(broadcasts) + " clients" << std::endl;
+                        std::cout << "[TRADE] Trade broadcasted: " + trade.symbol + " = $" + std::to_string(trade.price) + " to " + std::to_string(broadcasts) + " clients" << std::endl;
                     }
                 }
             }
@@ -546,7 +546,7 @@ namespace coinbase_dtc_core
 
                     if (broadcasts > 0)
                     {
-                        std::cout << "📊 Level2 broadcasted: " + level2.symbol + " Bid=$" + std::to_string(level2.bid_price) + " Ask=$" + std::to_string(level2.ask_price) + " to " + std::to_string(broadcasts) + " clients" << std::endl;
+                        std::cout << "[LEVEL2] Level2 broadcasted: " + level2.symbol + " Bid=$" + std::to_string(level2.bid_price) + " Ask=$" + std::to_string(level2.ask_price) + " to " + std::to_string(broadcasts) + " clients" << std::endl;
                     }
                 }
             }
@@ -601,6 +601,14 @@ namespace coinbase_dtc_core
                     client->send_message(response_data);
 
                     std::cout << "LogonResponse sent to client " + std::to_string(client->get_client_id()) << std::endl;
+
+                    // TODO: Send real account data after successful login
+                    // For now, client shows simulation data until we implement:
+                    // 1. CoinbaseRestClient integration
+                    // 2. DTC account balance message types
+                    // 3. Real Coinbase API authentication
+
+                    std::cout << "TODO: Account data integration needed - client shows simulation" << std::endl;
                     break;
                 }
 
@@ -654,7 +662,10 @@ namespace coinbase_dtc_core
                             subscriptions.push_back(market_req->symbol);
                         }
 
-                        std::cout << "✅ Client " + std::to_string(client->get_client_id()) + " subscribed to " + market_req->symbol + " (ID: " + std::to_string(market_req->symbol_id) + ")" << std::endl;
+                        if (client_subscription)
+                        {
+                            std::cout << "[SUCCESS] Client " + std::to_string(client->get_client_id()) + " subscribed to " + market_req->symbol + " (ID: " + std::to_string(market_req->symbol_id) + ")" << std::endl;
+                        }
                     }
                     else if (market_req->request_action == open_dtc_server::core::dtc::RequestAction::UNSUBSCRIBE)
                     {
@@ -662,7 +673,10 @@ namespace coinbase_dtc_core
                         auto &subscriptions = client->get_session().subscribed_symbols;
                         subscriptions.erase(std::remove(subscriptions.begin(), subscriptions.end(), market_req->symbol), subscriptions.end());
 
-                        std::cout << "❌ Client " + std::to_string(client->get_client_id()) + " unsubscribed from " + market_req->symbol << std::endl;
+                        if (client_unsubscription)
+                        {
+                            std::cout << "[INFO] Client " + std::to_string(client->get_client_id()) + " unsubscribed from " + market_req->symbol << std::endl;
+                        }
                     }
                     break;
                 }

@@ -54,7 +54,7 @@ namespace dtc_test_client
 
         if (connected_)
         {
-            log_message("✅ Connected to DTC Server successfully");
+            log_message("[SUCCESS] Connected to DTC Server successfully");
             if (status_callback_)
             {
                 status_callback_("Connected to " + host + ":" + std::to_string(port));
@@ -89,7 +89,7 @@ namespace dtc_test_client
     {
         if (!connected_)
         {
-            log_message("❌ Not connected to server");
+            log_message("[ERROR] Not connected to server");
             return false;
         }
 
@@ -101,11 +101,11 @@ namespace dtc_test_client
         account_info_.currency = "USD";
         account_info_.verified = true;
 
-        log_message("✅ Account Info Retrieved:");
-        log_message("  Account ID: " + account_info_.account_id);
-        log_message("  Balance: $" + std::to_string(account_info_.balance));
-        log_message("  Currency: " + account_info_.currency);
-        log_message("  Verified: " + std::string(account_info_.verified ? "Yes" : "No"));
+        log_message("[SUCCESS] Account Info Retrieved:");
+        log_message("[MOCKED DATA]   Account ID: " + account_info_.account_id);
+        log_message("[MOCKED DATA]   Balance: $" + std::to_string(account_info_.balance));
+        log_message("[MOCKED DATA]   Currency: " + account_info_.currency);
+        log_message("[MOCKED DATA]   Verified: " + std::string(account_info_.verified ? "Yes" : "No"));
 
         if (account_callback_)
         {
@@ -119,7 +119,7 @@ namespace dtc_test_client
     {
         if (!connected_)
         {
-            log_message("❌ Not connected to server");
+            log_message("[ERROR] Not connected to server");
             return false;
         }
 
@@ -133,10 +133,10 @@ namespace dtc_test_client
             {"SOL-USD", "Solana / US Dollar", 98.75, 12000.0, true},
             {"ADA-USD", "Cardano / US Dollar", 0.45, 2500000.0, true}};
 
-        log_message("✅ Found " + std::to_string(symbols_.size()) + " trading symbols:");
+        log_message("[SUCCESS] Found " + std::to_string(symbols_.size()) + " trading symbols:");
         for (const auto &symbol : symbols_)
         {
-            log_message("  " + symbol.symbol + " - " + symbol.display_name +
+            log_message("[MOCKED DATA]   " + symbol.symbol + " - " + symbol.display_name +
                         " (Price: $" + std::to_string(symbol.price) + ")");
         }
 
@@ -147,7 +147,7 @@ namespace dtc_test_client
     {
         if (!connected_)
         {
-            log_message("❌ Not connected to server");
+            log_message("[ERROR] Not connected to server");
             return false;
         }
 
@@ -162,11 +162,11 @@ namespace dtc_test_client
                 sym.price = sym.price + (rand() % 100 - 50) * 0.01; // Random price change
                 sym.volume = sym.volume + (rand() % 1000);
 
-                log_message("✅ Symbol Info for " + symbol + ":");
-                log_message("  Display Name: " + sym.display_name);
-                log_message("  Current Price: $" + std::to_string(sym.price));
-                log_message("  24h Volume: " + std::to_string(sym.volume));
-                log_message("  Status: " + std::string(sym.active ? "Active" : "Inactive"));
+                log_message("[SUCCESS] Symbol Info for " + symbol + ":");
+                log_message("[MOCKED DATA]   Display Name: " + sym.display_name);
+                log_message("[MOCKED DATA]   Current Price: $" + std::to_string(sym.price));
+                log_message("[MOCKED DATA]   24h Volume: " + std::to_string(sym.volume));
+                log_message("[MOCKED DATA]   Status: " + std::string(sym.active ? "Active" : "Inactive"));
 
                 if (symbol_callback_)
                 {
@@ -176,15 +176,15 @@ namespace dtc_test_client
             }
         }
 
-        log_message("❌ Symbol not found: " + symbol);
+        log_message("[ERROR] Symbol not found: " + symbol);
         return false;
     }
 
-    bool DTCTestClient::get_symbol_last_trade(const std::string &symbol)
+    bool DTCTestClient::get_last_trade(const std::string &symbol)
     {
         if (!connected_)
         {
-            log_message("❌ Not connected to server");
+            log_message("[ERROR] Not connected to server");
             return false;
         }
 
@@ -194,9 +194,9 @@ namespace dtc_test_client
         double last_price = 100.0 + (rand() % 10000) * 0.01;
         double last_size = 1.0 + (rand() % 1000) * 0.01;
 
-        log_message("✅ Last Trade for " + symbol + ":");
-        log_message("  Price: $" + std::to_string(last_price));
-        log_message("  Size: " + std::to_string(last_size));
+        log_message("[SUCCESS] Last Trade for " + symbol + ":");
+        log_message("[MOCKED DATA]   Price: $" + std::to_string(last_price));
+        log_message("[MOCKED DATA]   Size: " + std::to_string(last_size));
 
         if (trade_callback_)
         {
@@ -206,11 +206,11 @@ namespace dtc_test_client
         return true;
     }
 
-    bool DTCTestClient::get_symbol_depth(const std::string &symbol)
+    bool DTCTestClient::get_market_depth(const std::string &symbol)
     {
         if (!connected_)
         {
-            log_message("❌ Not connected to server");
+            log_message("[ERROR] Not connected to server");
             return false;
         }
 
@@ -240,16 +240,16 @@ namespace dtc_test_client
             depth.asks.emplace_back(price, size);
         }
 
-        log_message("✅ Market Depth for " + symbol + ":");
-        log_message("  Bids (Buy Orders):");
+        log_message("[SUCCESS] Market Depth for " + symbol + ":");
+        log_message("[MOCKED DATA]   Bids (Buy Orders):");
         for (const auto &bid : depth.bids)
         {
-            log_message("    $" + std::to_string(bid.first) + " x " + std::to_string(bid.second));
+            log_message("[MOCKED DATA]     $" + std::to_string(bid.first) + " x " + std::to_string(bid.second));
         }
-        log_message("  Asks (Sell Orders):");
+        log_message("[MOCKED DATA]   Asks (Sell Orders):");
         for (const auto &ask : depth.asks)
         {
-            log_message("    $" + std::to_string(ask.first) + " x " + std::to_string(ask.second));
+            log_message("[MOCKED DATA]     $" + std::to_string(ask.first) + " x " + std::to_string(ask.second));
         }
 
         if (depth_callback_)
@@ -264,7 +264,7 @@ namespace dtc_test_client
     {
         if (!connected_)
         {
-            log_message("❌ Not connected to server");
+            log_message("[ERROR] Not connected to server");
             return false;
         }
 
@@ -273,7 +273,7 @@ namespace dtc_test_client
         {
             if (sub == symbol)
             {
-                log_message("⚠️ Already subscribed to: " + symbol);
+                log_message("[WARNING] Already subscribed to: " + symbol);
                 return true;
             }
         }
@@ -282,8 +282,8 @@ namespace dtc_test_client
         subscribed_symbols_.push_back(symbol);
 
         // Simulate subscription confirmation
-        log_message("✅ Subscription confirmed for " + symbol);
-        log_message("📊 Real-time data stream active");
+        log_message("[SUCCESS] Subscription confirmed for " + symbol);
+        log_message("[INFO] Real-time data stream active");
 
         return send_market_data_request(symbol);
     }
@@ -294,11 +294,11 @@ namespace dtc_test_client
         if (it != subscribed_symbols_.end())
         {
             subscribed_symbols_.erase(it);
-            log_message("❌ Unsubscribed from: " + symbol);
+            log_message("[INFO] Unsubscribed from: " + symbol);
             return true;
         }
 
-        log_message("⚠️ Not subscribed to: " + symbol);
+        log_message("[WARNING] Not subscribed to: " + symbol);
         return false;
     }
 
@@ -381,7 +381,7 @@ namespace dtc_test_client
         // Simulate logon process
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-        log_message("✅ DTC Logon successful");
+        log_message("[SUCCESS] DTC Logon successful");
         return true;
     }
 
@@ -392,7 +392,7 @@ namespace dtc_test_client
         // Simulate market data subscription
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-        log_message("✅ Market data subscription active for " + symbol);
+        log_message("[SUCCESS] Market data subscription active for " + symbol);
         return true;
     }
 

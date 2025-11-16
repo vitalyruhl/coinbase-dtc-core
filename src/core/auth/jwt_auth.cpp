@@ -155,7 +155,7 @@ namespace open_dtc_server
                 {
                     auto signed_token = token.sign(jwt::algorithm::es256("", signing_key, "", ""));
 
-                    std::cout << "✅ Successfully signed JWT token with ES256 (ECDSA PEM)!" << std::endl;
+                    std::cout << "[SUCCESS] Successfully signed JWT token with ES256 (ECDSA PEM)!" << std::endl;
 
                     // Update cache
                     current_token_ = signed_token;
@@ -165,7 +165,7 @@ namespace open_dtc_server
                 }
                 catch (const std::exception &e)
                 {
-                    std::cout << "❌ ECDSA PEM signing failed: " << e.what() << std::endl;
+                    std::cout << "[ERROR] ECDSA PEM signing failed: " << e.what() << std::endl;
                     throw std::runtime_error("Failed to sign JWT with ECDSA PEM key: " + std::string(e.what()));
                 }
             }
@@ -177,7 +177,7 @@ namespace open_dtc_server
                 std::cout << "Debug: Trying direct base64 format for ECDSA..." << std::endl;
                 auto signed_token = token.sign(jwt::algorithm::es256("", signing_key, "", ""));
 
-                std::cout << "✅ Successfully signed JWT token with ES256!" << std::endl;
+                std::cout << "[SUCCESS] Successfully signed JWT token with ES256!" << std::endl;
 
                 // Update cache
                 current_token_ = signed_token;
@@ -197,7 +197,7 @@ namespace open_dtc_server
 
                     auto signed_token = token.sign(jwt::algorithm::es256("", pem_key, "", ""));
 
-                    std::cout << "✅ Successfully signed JWT token with ES256 (converted PEM)!" << std::endl;
+                    std::cout << "[SUCCESS] Successfully signed JWT token with ES256 (converted PEM)!" << std::endl;
 
                     // Update cache
                     current_token_ = signed_token;

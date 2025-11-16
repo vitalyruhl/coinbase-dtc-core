@@ -63,12 +63,9 @@
 ### 1. **P0 - Comprehensive DTC Protocol Test Client** 🚧
 
 - check this:
-  [coinbase-dtc-core] [WARNING] SSL_read failed: error:00000000:lib(0)::reason(0)
-  [coinbase-dtc-core] [WARNING] SSL_read failed: error:00000000:lib(0)::reason(0)
-  [coinbase-dtc-core] [WARNING] SSL_read failed: error:00000000:lib(0)::reason(0)
-  [coinbase-dtc-core] [WARNING] SSL_read failed: error:00000000:lib(0)::reason(0)
-  [coinbase-dtc-core] [WARNING] SSL_read failed: error:00000000:lib(0)::reason(0)
-  [coinbase-dtc-core] [WARNING] SSL_read failed: error:00000000:lib(0)::reason(0)
+  - [ ] --> [coinbase-dtc-core] [WARNING] SSL_read failed: error:00000000:lib(0)::reason(0)
+    - [ ] Fix SSL_read warning in test client during communication, add reconnection logic
+
 
 - [ ] Create complete test client that validates ALL DTC protocol functions
 - [ ] Test every DTC message type with real Coinbase data (not mock)
